@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shaka-packager
+  namespace: media
+  labels:
+    app: shaka-packager
+    component: packaging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: shaka-packager
+  template:
+    metadata:
+      labels:
+        app: shaka-packager
+        component: packaging
+    spec:
+      priorityClassName: media-critical
+      containers:
+      - name: packager
+        image: registry.${INFRA_REGISTRY}/streaming-platform/media/shaka-packager:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 50051
+          name: grpc
+        env:
+        - name: SEGMENT_SIZE
+          value: "6"
+        - name: SEGMENT_DURATION
+          value: "6"
+        - name: STORAGE_PATH
+          value: "/data/packages"
+        - name: MINIO_ENDPOINT
+          value: "minio-service.data.svc.cluster.local:9000"
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: access-key
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-secrets
+              key: secret-key
+        volumeMounts:
+        - name: data
+          mountPath: /data/packages
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: 2Gi
+          limits:
+            cpu: "4000m"
+            memory: 8Gi
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: packager-storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: packager-storage
+  namespace: media
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shaka-packager
+  namespace: media
+spec:
+  selector:
+    app: shaka-packager
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+  type: ClusterIP
+

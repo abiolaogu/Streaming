@@ -1,0 +1,82 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars.backup
+*.tfplan
+
+# Kubernetes
+*.kubeconfig
+*.kubeconfig.backup
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Secrets
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/
+target/
+*.o
+*.so
+*.a
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.test
+vendor/
+
+# Rust
+target/
+Cargo.lock
+
+# Helm
+charts/*/charts/
+charts/*/requirements.lock
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

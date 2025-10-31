@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fast-scheduler
+  namespace: media
+  labels:
+    app: fast-scheduler
+    component: scheduling
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fast-scheduler
+  template:
+    metadata:
+      labels:
+        app: fast-scheduler
+        component: scheduling
+    spec:
+      priorityClassName: media-critical
+      containers:
+      - name: scheduler
+        image: registry.${INFRA_REGISTRY}/streaming-platform/media/fast-scheduler:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CHANNEL_PLAYLIST_PATH
+          value: "/config/channels"
+        - name: AD_PLACEMENT_DB
+          value: "scylla-svc.data.svc.cluster.local"
+        - name: DRAGONFLY_ADDR
+          value: "dragonfly-svc.data.svc.cluster.local:6379"
+        volumeMounts:
+        - name: config
+          mountPath: /config/channels
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 1Gi
+          limits:
+            cpu: "2000m"
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: fast-channels
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fast-scheduler
+  namespace: media
+spec:
+  selector:
+    app: fast-scheduler
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fast-channels
+  namespace: media
+data:
+  channel-1.yaml: |
+    channel_id: channel-1
+    name: Action Movies
+    vod_directory: /vod/action-movies/
+    ad_breaks:
+      - interval: 600
+        duration: 90
+        type: midroll
+      - interval: 1200
+        duration: 90
+        type: midroll
+  channel-2.yaml: |
+    channel_id: channel-2
+    name: Comedy Central
+    vod_directory: /vod/comedy/
+    ad_breaks:
+      - interval: 480
+        duration: 60
+        type: midroll
+

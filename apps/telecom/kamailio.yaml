@@ -1,0 +1,221 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kamailio
+  namespace: telecom
+  labels:
+    app: kamailio
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kamailio
+  template:
+    metadata:
+      labels:
+        app: kamailio
+    spec:
+      priorityClassName: telecom-critical
+      containers:
+      - name: kamailio
+        image: any-sim/kamailio:5.8.3
+        ports:
+        - containerPort: 5060
+          name: sip-udp
+          protocol: UDP
+        - containerPort: 5060
+          name: sip-tcp
+          protocol: TCP
+        - containerPort: 5061
+          name: sip-tls
+          protocol: TCP
+        env:
+        - name: DB_HOST
+          value: "postgres-service.data.svc.cluster.local"
+        - name: DB_DBNAME
+          value: "kamailio"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 1Gi
+          limits:
+            cpu: "2000m"
+            memory: 4Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kamailio
+        - name: logs
+          mountPath: /var/log/kamailio
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - kamcmd ping
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - kamcmd ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: kamailio-config
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kamailio
+  namespace: telecom
+spec:
+  selector:
+    app: kamailio
+  ports:
+  - name: sip-udp
+    port: 5060
+    targetPort: 5060
+    protocol: UDP
+  - name: sip-tcp
+    port: 5060
+    targetPort: 5060
+    protocol: TCP
+  - name: sip-tls
+    port: 5061
+    targetPort: 5061
+    protocol: TCP
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kamailio-config
+  namespace: telecom
+data:
+  kamailio.cfg: |
+    #!define WITH_MYSQL
+    #!define WITH_AUTH
+    #!define WITH_REGISTRAR
+    #!define WITH_NAT
+    #!define WITH_TLS
+    
+    # Kamailio SIP Server Configuration
+    
+    ####### Global Parameters #######
+    debug=4
+    log_stderror=no
+    log_facility=LOG_LOCAL0
+    
+    children=4
+    
+    ####### Modules Section  #######
+    loadmodule "debugger"
+    loadmodule "sl"
+    loadmodule "tm"
+    loadmodule "rr"
+    loadmodule "pv"
+    loadmodule "maxfwd"
+    loadmodule "usrloc"
+    loadmodule "registrar"
+    loadmodule "textops"
+    loadmodule "siputils"
+    loadmodule "xlog"
+    loadmodule "ctl"
+    
+    ####### Setting module-specific parameters #######
+    
+    # --- registrar params ---
+    modparam("registrar", "default_expires", 3600)
+    modparam("registrar", "min_expires", 60)
+    modparam("registrar", "max_expires", 7200)
+    
+    # --- usrloc params ---
+    modparam("usrloc", "db_url", "DB_URL")
+    
+    ####### Routing Logic #######
+    
+    request_route {
+      route(REQINIT);
+      
+      # pre-process
+      if (is_method("INVITE") || is_method("UPDATE") || is_method("ACK") || is_method("BYE")) {
+        route(NATMANAGE);
+      }
+      
+      # routing
+      if (uri != myself) {
+        route(LOCATION);
+        exit;
+      }
+      
+      # local routing
+      if (is_method("REGISTER")) {
+        route(REGISTRAR);
+        exit;
+      }
+      
+      # proxy
+      if (is_method("INVITE") || is_method("ACK") || is_method("BYE")) {
+        route(PROXY);
+        exit;
+      }
+      
+      sl_reply("501", "Not Implemented");
+      exit;
+    }
+    
+    route[REQINIT] {
+      # sanity checks
+      if (!mf_process_maxfwd_header(10)) {
+        sl_reply("483", "Too Many Hops");
+        exit;
+      }
+      
+      if (is_method("ACK") || is_method("CANCEL")) {
+        t_reply("200", "OK");
+        exit;
+      }
+    }
+    
+    route[NATMANAGE] {
+      if (nat_uac_test("19")) {
+        fix_nated_contact();
+      }
+    }
+    
+    route[REGISTRAR] {
+      if (!is_myself("$rd")) {
+        append_hf("P-Hint: outbound\r\n");
+      }
+      
+      if (!save("location")) {
+        sl_reply("500", "Internal Server Error");
+        exit;
+      }
+      
+      exit;
+    }
+    
+    route[LOCATION] {
+      if (!lookup("location")) {
+        sl_reply("404", "Not Found");
+        exit;
+      }
+      
+      t_reply("200", "OK");
+      exit;
+    }
+    
+    route[PROXY] {
+      if (!t_relay()) {
+        sl_reply("502", "Bad Gateway");
+        exit;
+      }
+    }
+

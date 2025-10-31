@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mm2-replicator
+  namespace: data
+  labels:
+    app: mm2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mm2
+  template:
+    metadata:
+      labels:
+        app: mm2
+    spec:
+      containers:
+      - name: mm2
+        image: confluentinc/cp-kafka-connect:7.5.0
+        ports:
+        - containerPort: 8083
+          name: http
+        env:
+        - name: CONNECT_BOOTSTRAP_SERVERS
+          value: "kafka-client.data.svc.cluster.local:9092"
+        - name: CONNECT_GROUP_ID
+          value: "mm2-replicator"
+        - name: CONNECT_CONFIG_STORAGE_TOPIC
+          value: "mm2-configs"
+        - name: CONNECT_OFFSET_STORAGE_TOPIC
+          value: "mm2-offsets"
+        - name: CONNECT_STATUS_STORAGE_TOPIC
+          value: "mm2-status"
+        - name: CONNECT_REST_ADVERTISED_HOST_NAME
+          value: "mm2-replicator"
+        - name: CONNECT_PLUGIN_PATH
+          value: "/usr/share/confluent-hub-components"
+        command:
+        - /bin/bash
+        args:
+        - -c
+        - |
+          confluent-hub install --no-prompt confluentinc/kafka-connect-replicator:latest
+          /etc/confluent/docker/run
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: 2Gi
+          limits:
+            cpu: "4000m"
+            memory: 8Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/mm2
+      volumes:
+      - name: config
+        configMap:
+          name: mm2-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mm2-config
+  namespace: data
+data:
+  replicator.properties: |
+    name=mm2-replicator
+    connector.class=io.confluent.connect.replicator.ReplicatorSourceConnector
+    topics=video-upload,video-transcode,video-package,qoe-metrics
+    key.converter=org.apache.kafka.connect.converters.ByteArrayConverter
+    value.converter=org.apache.kafka.connect.converters.ByteArrayConverter
+    src.kafka.bootstrap.servers=kafka-client.data.svc.cluster.local:9092
+    src.kafka.group.id=mm2-consumer
+    dest.kafka.bootstrap.servers=${REMOTE_KAFKA_BROKERS}
+    tasks.max=4
+    replication.factor=3
+

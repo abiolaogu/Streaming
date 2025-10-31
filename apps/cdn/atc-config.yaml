@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atc-topology
+  namespace: cdn
+data:
+  topology.yaml: |
+    cache:
+      cluster:
+        name: "streaming-platform-cluster"
+      
+      tier:
+        - name: "shield"
+          max-hosts: 3
+          topologies:
+            - name: "us-east-1"
+              servers:
+                - hostname: varnish-shield-1
+                  host: varnish-shield.cdn.svc.cluster.local
+                  port: 8080
+                - hostname: varnish-shield-2
+                  host: varnish-shield.cdn.svc.cluster.local
+                  port: 8080
+                - hostname: varnish-shield-3
+                  host: varnish-shield.cdn.svc.cluster.local
+                  port: 8080
+        
+        - name: "edge"
+          max-hosts: 10
+          topologies:
+            - name: "us-east-1"
+              servers:
+                - hostname: ats-edge-1
+                  host: ats-edge.cdn.svc.cluster.local
+                  port: 8080
+                - hostname: ats-edge-2
+                  host: ats-edge.cdn.svc.cluster.local
+                  port: 8080
+            
+            - name: "eu-west-1"
+              servers:
+                - hostname: ats-edge-3
+                  host: ats-edge.cdn.svc.cluster.local
+                  port: 8080
+                - hostname: ats-edge-4
+                  host: ats-edge.cdn.svc.cluster.local
+                  port: 8080
+            
+            - name: "ap-southeast-1"
+              servers:
+                - hostname: ats-edge-5
+                  host: ats-edge.cdn.svc.cluster.local
+                  port: 8080
+                - hostname: ats-edge-6
+                  host: ats-edge.cdn.svc.cluster.local
+                  port: 8080
+      
+      routing:
+        - name: "default"
+          paths:
+            - prefix: "/vod/"
+              tier: shield
+              fallback-tier: edge
+            - prefix: "/live/"
+              tier: shield
+              fallback-tier: edge
+            - prefix: "/fast/"
+              tier: shield
+              fallback-tier: edge
+

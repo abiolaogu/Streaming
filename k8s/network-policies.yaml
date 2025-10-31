@@ -1,0 +1,110 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: platform
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: media-allow-ingress
+  namespace: media
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: cdn
+    - namespaceSelector:
+        matchLabels:
+          name: data
+    - namespaceSelector:
+        matchLabels:
+          name: platform
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 50051
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cdn-allow-ingress
+  namespace: cdn
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: media
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+    - protocol: UDP
+      port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-allow-ingress
+  namespace: data
+spec:
+  podSelector:
+    matchLabels:
+      app: dragonfly
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: media
+    - namespaceSelector:
+        matchLabels:
+          name: platform
+    - namespaceSelector:
+        matchLabels:
+          name: cdn
+    ports:
+    - protocol: TCP
+      port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: telecom-allow-ingress
+  namespace: telecom
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: platform
+    ports:
+    - protocol: UDP
+      port: 5060
+    - protocol: TCP
+      port: 5060
+    - protocol: UDP
+      port: 7001
+    - protocol: UDP
+      port: 16384-32767
+

@@ -1,0 +1,58 @@
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: system-cluster-critical
+value: 2000000000
+globalDefault: false
+description: "System critical pods that should never be evicted"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: platform-critical
+value: 1000000000
+globalDefault: false
+description: "Platform critical workloads"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: media-critical
+value: 900000000
+globalDefault: false
+description: "Media processing critical workloads"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: cdn-critical
+value: 800000000
+globalDefault: false
+description: "CDN edge services"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: data-critical
+value: 700000000
+globalDefault: false
+description: "Data store workloads"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: telecom-critical
+value: 600000000
+globalDefault: false
+description: "Telecom core services"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: spot-workload
+value: 100000000
+globalDefault: false
+description: "Preemptible spot workloads"
+preemptionPolicy: Never
+
