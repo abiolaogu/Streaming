@@ -276,62 +276,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "spot_cpu" {
   zones = [1, 2, 3]
 }
 
-# Spot GPU Node Pool
-resource "azurerm_kubernetes_cluster_node_pool" "spot_gpu" {
-  name                  = "spotgpu"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = "Standard_NC6s_v3"
-  node_count            = 0
-  
-  priority        = "Spot"
-  eviction_policy = "Delete"
-  spot_max_price  = 0.50
-  
-  enable_auto_scaling = true
-  min_count           = 0
-  max_count           = var.gpu_spot_max
-  
-  os_disk_size_gb = 100
-  
-  node_labels = {
-    workload-type = "gpu"
-    spot-enabled  = "true"
-    nvidia.com/gpu = "true"
-  }
-  
-  node_taints = [
-    "nvidia.com/gpu=true:NoSchedule"
-  ]
-  
-  zones = [1, 2, 3]
-}
-
-# On-demand GPU fallback pool
-resource "azurerm_kubernetes_cluster_node_pool" "ondemand_gpu_fallback" {
-  name                  = "ondemandgpu"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = "Standard_NC6s_v3"
-  node_count            = 0
-  
-  enable_auto_scaling = true
-  min_count           = 0
-  max_count           = 1
-  
-  os_disk_size_gb = 100
-  
-  node_labels = {
-    workload-type = "gpu"
-    spot-enabled  = "false"
-    nvidia.com/gpu = "true"
-  }
-  
-  node_taints = [
-    "nvidia.com/gpu=true:NoSchedule"
-  ]
-  
-  zones = [1, 2, 3]
-}
-
 # Outputs
 output "cluster_id" {
   value = azurerm_kubernetes_cluster.main.id

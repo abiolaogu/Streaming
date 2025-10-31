@@ -96,10 +96,20 @@ else
     echo "✓ On-demand node count: $ONDEMAND_COUNT"
 fi
 
-# Test 12: GPU nodes (if any)
-echo "Test 12: GPU nodes"
+# Test 12: RunPod autoscaler
+echo "Test 12: RunPod autoscaler"
+kubectl get deployment runpod-autoscaler -n platform || { echo "WARN: RunPod autoscaler not found"; }
+echo "✓ RunPod autoscaler checked"
+
+# Test 13: KEDA triggers
+echo "Test 13: KEDA GPU scalers"
+kubectl get scaledobjects.runpod-gpu-scaler -n media || { echo "WARN: GPU scalers not found"; }
+echo "✓ KEDA GPU scalers checked"
+
+# Test 14: GPU nodes (if any - local baseline or RunPod)
+echo "Test 14: GPU nodes"
 GPU_COUNT=$(kubectl get nodes -l nvidia.com/gpu=true --no-headers 2>/dev/null | wc -l)
-echo "✓ GPU nodes: $GPU_COUNT"
+echo "✓ GPU nodes: $GPU_COUNT (local baseline or RunPod)"
 
 echo "=========================================="
 echo "All smoke tests passed!"

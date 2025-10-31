@@ -137,58 +137,6 @@ module "eks" {
         max_unavailable_percentage = 50
       }
     }
-    
-    gpu_spot = {
-      min_size     = 0
-      max_size     = var.gpu_spot_max
-      desired_size = 0
-      instance_types = ["g4dn.xlarge", "g5.xlarge"]
-      capacity_type = "SPOT"
-      
-      labels = {
-        workload-type = "gpu"
-        spot-enabled   = "true"
-        nvidia.com/gpu = "true"
-      }
-      
-      taints = [
-        {
-          key    = "nvidia.com/gpu"
-          value  = "true"
-          effect = "NO_SCHEDULE"
-        }
-      ]
-      
-      update_config = {
-        max_unavailable_percentage = 50
-      }
-    }
-    
-    gpu_ondemand_fallback = {
-      min_size     = 0
-      max_size     = 1
-      desired_size = 0
-      instance_types = ["g5.xlarge"]
-      capacity_type = "ON_DEMAND"
-      
-      labels = {
-        workload-type = "gpu"
-        spot-enabled   = "false"
-        nvidia.com/gpu = "true"
-      }
-      
-      taints = [
-        {
-          key    = "nvidia.com/gpu"
-          value  = "true"
-          effect = "NO_SCHEDULE"
-        }
-      ]
-      
-      update_config = {
-        max_unavailable_percentage = 50
-      }
-    }
   }
   
   node_security_group_additional_rules = {

@@ -55,12 +55,6 @@ variable "cpu_spot_max" {
   default     = 20
 }
 
-variable "gpu_spot_max" {
-  description = "Maximum number of Spot GPU nodes"
-  type        = number
-  default     = 10
-}
-
 variable "ecr_repositories" {
   description = "List of ECR repositories to create"
   type        = list(string)

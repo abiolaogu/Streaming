@@ -1,10 +1,10 @@
 # Streaming2 - Production-Grade Multi-Cloud Streaming Platform
 
-🚀 **A complete production-ready infrastructure for VoD + FAST + PayTV delivery with global CDN, multi-cloud Spot/Preemptible autoscaling, live GPU transcoding, telecom backend, and satellite overlay.**
+🚀 **A complete production-ready infrastructure for VoD + FAST + PayTV delivery with global CDN, RunPod GPU plane, multi-cloud Spot/Preemptible autoscaling, live GPU transcoding, telecom backend, and satellite overlay.**
 
 ## 🎯 Overview
 
-This repository implements a comprehensive streaming platform designed for maximum cost efficiency through multi-cloud Spot/Preemptible instance autoscaling, while maintaining production-grade reliability and performance.
+This repository implements a comprehensive streaming platform designed for maximum cost efficiency through hybrid GPU architecture: RunPod API-driven cloud GPU burst + local GPU baseline at Tier-1 PoPs, with multi-cloud Spot/Preemptible CPU autoscaling.
 
 ### Key Features
 
@@ -13,14 +13,16 @@ This repository implements a comprehensive streaming platform designed for maxim
 - ✅ **Data Layer**: MinIO origin, DragonflyDB, ScyllaDB, Kafka/MM2, ClickHouse analytics
 - ✅ **Telecom**: Kamailio, FreeSWITCH, Open5GS (5G Core), WebRTC GW, RTPengine
 - ✅ **Satellite Overlay**: DVB-NIP/I/MABR carousel, STB cache daemon, terrestrial repair
-- ✅ **Multi-Cloud**: AWS (EKS), GCP (GKE), Azure (AKS) with unified autoscaling
-- ✅ **Cost Optimized**: ≤1 on-demand CPU per cloud, Spot/Preemptible burst, nightly GPU scale-to-zero
+- ✅ **GPU Architecture**: RunPod cloud burst + local GPU baseline (Tier-1 PoPs) via KEDA triggers
+- ✅ **Multi-Cloud**: AWS (EKS), GCP (GKE), Azure (AKS) with Spot CPU, OpenStack for on-prem
+- ✅ **Cost Optimized**: ≤1 on-demand CPU per cloud, Spot/Preemptible burst, GPU=0 when idle
 
 ## 📋 Prerequisites
 
 - Terraform >= 1.5.0
 - kubectl >= 1.28
 - AWS/GCP/Azure accounts with admin access
+- RunPod API key for GPU burst
 - GitHub Actions configured with secrets
 
 ## 🚀 Quick Start
@@ -130,6 +132,9 @@ GCP_SA_KEY
 AZURE_CLIENT_ID
 AZURE_CLIENT_SECRET
 AZURE_TENANT_ID
+RUNPOD_API_KEY
+RUNPOD_NETWORK_VOLUME_ID
+RUNPOD_TEMPLATE_ID
 WIDEVINE_URL
 PLAYREADY_URL
 FAIRPLAY_CERT
@@ -144,17 +149,17 @@ KAFKA_BOOTSTRAP_SERVERS
 
 **Dev environment**:
 
-- **On-Demand CPU**: 1 node (t3.medium, e2-medium, B2s)
+- **On-Demand CPU**: 1 node per cloud (t3.medium, e2-medium, B2s) - control plane only
 - **Spot CPU**: 0-10 nodes (auto-scale)
-- **Spot GPU**: 0-5 nodes (auto-scale)
-- **On-Demand GPU Fallback**: 0-1 node
+- **RunPod GPU**: 0-20 instances (API-driven burst)
+- **Local GPU Baseline**: 1 GPU server per Tier-1 PoP (OpenStack)
 
 **Production environment**:
 
 - **On-Demand CPU**: 1 node per cloud
 - **Spot CPU**: 0-50 nodes
-- **Spot GPU**: 0-20 nodes
-- **On-Demand GPU Fallback**: 0-1 node
+- **RunPod GPU**: 0-50 instances
+- **Local GPU Baseline**: 1-2 GPU servers per Tier-1 PoP
 
 ## 🔄 Autoscaling
 
@@ -167,10 +172,13 @@ KAFKA_BOOTSTRAP_SERVERS
 
 ### GPU Autoscaling
 
-- **Trigger**: OME transcoding workload detected
-- **Scale-out**: Spot GPU nodes (g4dn.xlarge, g5.xlarge, NC6s_v3)
-- **Nightly reset**: GPU nodes = 0 at 2 AM if idle
-- **Fallback**: On-demand GPU if Spot unavailable
+- **Trigger**: Kafka queue depth > 5 OR latency SLO breach OR KEDA metrics
+- **RunPod Burst**: API-driven spin-up (RTX 6000 Ada, A100, etc.)
+- **SSH Attachment**: Auto-join to Kubernetes cluster, appear as worker nodes
+- **Local Baseline**: Tier-1 PoPs for ultra-low-latency media AI
+- **Checkpoint**: MinIO-backed, jobs resume anywhere (RunPod or local)
+- **Egress Optimization**: Push processed chunks via RunPod network
+- **Scale-down**: GPU = 0 when idle (60s threshold)
 
 ### CDN Autoscaling
 
