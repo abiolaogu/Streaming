@@ -1,0 +1,87 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: streamverse-pipeline
+  namespace: streamverse
+spec:
+  params:
+    - name: service-name
+      description: Service to build and deploy
+    - name: image-tag
+      description: Docker image tag
+      default: latest
+  
+  workspaces:
+    - name: source
+      description: Source code workspace
+  
+  tasks:
+    # Build
+    - name: build
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      params:
+        - name: IMAGE
+          value: registry.streamverse.io/$(params.service-name):$(params.image-tag)
+        - name: DOCKERFILE
+          value: services/$(params.service-name)/Dockerfile
+      workspaces:
+        - name: source
+          workspace: source
+    
+    # Test
+    - name: unit-tests
+      taskRef:
+        name: golang-test
+        kind: ClusterTask
+      params:
+        - name: PACKAGE
+          value: ./services/$(params.service-name)
+      workspaces:
+        - name: source
+          workspace: source
+      runAfter:
+        - build
+    
+    # Security Scan
+    - name: security-scan
+      taskRef:
+        name: trivy-scanner
+      params:
+        - name: IMAGE
+          value: registry.streamverse.io/$(params.service-name):$(params.image-tag)
+      runAfter:
+        - build
+    
+    # Deploy
+    - name: deploy
+      taskRef:
+        name: kubectl-deploy
+      params:
+        - name: SERVICE_NAME
+          value: $(params.service-name)
+        - name: IMAGE
+          value: registry.streamverse.io/$(params.service-name):$(params.image-tag)
+        - name: NAMESPACE
+          value: streamverse
+      runAfter:
+        - unit-tests
+        - security-scan
+    
+    # Rollback on failure
+    - name: rollback
+      taskRef:
+        name: kubectl-rollback
+      params:
+        - name: SERVICE_NAME
+          value: $(params.service-name)
+        - name: NAMESPACE
+          value: streamverse
+      when:
+        - input: "$(tasks.deploy.status)"
+          operator: in
+          values: ["Failed"]
+      runAfter:
+        - deploy
+

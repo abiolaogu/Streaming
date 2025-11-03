@@ -1,0 +1,169 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = 'registry.streamverse.io'
+        K8S_NAMESPACE = 'streamverse'
+        IMAGE_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Test') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh '''
+                            # Go services
+                            for service in services/*/; do
+                                if [ -f "$service/go.mod" ]; then
+                                    cd "$service"
+                                    go test ./... -v
+                                    cd - > /dev/null
+                                fi
+                            done
+                            
+                            # Python services
+                            for service in services/*/; do
+                                if [ -f "$service/requirements.txt" ]; then
+                                    cd "$service"
+                                    pip install -r requirements.txt
+                                    pytest tests/ -v
+                                    cd - > /dev/null
+                                fi
+                            done
+                        '''
+                    }
+                }
+                
+                stage('Security Scan') {
+                    steps {
+                        sh '''
+                            # SAST with SonarQube
+                            sonar-scanner \
+                                -Dsonar.projectKey=streamverse \
+                                -Dsonar.sources=. \
+                                -Dsonar.host.url=${SONARQUBE_URL}
+                            
+                            # Dependency scanning
+                            npm audit --audit-level=high || true
+                            go list -json -m all | nancy sleuth || true
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                script {
+                    def services = [
+                        'auth-service',
+                        'user-service',
+                        'content-service',
+                        'streaming-service',
+                        'transcoding-service',
+                        'payment-service',
+                        'search-service',
+                        'analytics-service',
+                        'recommendation-service',
+                        'notification-service',
+                        'admin-service',
+                        'scheduler-service'
+                    ]
+                    
+                    services.each { service ->
+                        sh """
+                            cd services/${service}
+                            docker build -t ${DOCKER_REGISTRY}/${service}:${IMAGE_TAG} .
+                            docker build -t ${DOCKER_REGISTRY}/${service}:latest .
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Image Scan') {
+            steps {
+                sh '''
+                    # Trivy vulnerability scan
+                    for service in auth-service user-service content-service; do
+                        trivy image --exit-code 0 --severity HIGH,CRITICAL \
+                            ${DOCKER_REGISTRY}/${service}:${IMAGE_TAG}
+                    done
+                    
+                    # Cosign signing
+                    cosign sign --key cosign.key ${DOCKER_REGISTRY}/${service}:${IMAGE_TAG}
+                '''
+            }
+        }
+        
+        stage('Push') {
+            steps {
+                sh '''
+                    docker login ${DOCKER_REGISTRY} -u ${DOCKER_USER} -p ${DOCKER_PASS}
+                    
+                    for service in services/*/; do
+                        service_name=$(basename $service)
+                        docker push ${DOCKER_REGISTRY}/${service_name}:${IMAGE_TAG}
+                        docker push ${DOCKER_REGISTRY}/${service_name}:latest
+                    done
+                '''
+            }
+        }
+        
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh '''
+                    kubectl set image deployment/${SERVICE_NAME} \
+                        ${SERVICE_NAME}=${DOCKER_REGISTRY}/${SERVICE_NAME}:${IMAGE_TAG} \
+                        -n ${K8S_NAMESPACE}
+                    
+                    kubectl rollout status deployment/${SERVICE_NAME} -n ${K8S_NAMESPACE}
+                '''
+            }
+        }
+        
+        stage('Smoke Tests') {
+            steps {
+                sh '''
+                    # Wait for services to be ready
+                    sleep 30
+                    
+                    # Run smoke tests
+                    ./tests/smoke-tests.sh
+                '''
+            }
+        }
+    }
+    
+    post {
+        success {
+            slackSend(
+                channel: '#deployments',
+                color: 'good',
+                message: "✅ Deployment successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            )
+        }
+        failure {
+            slackSend(
+                channel: '#deployments',
+                color: 'danger',
+                message: "❌ Deployment failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            )
+            sh 'kubectl rollout undo deployment/${SERVICE_NAME} -n ${K8S_NAMESPACE}'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
+

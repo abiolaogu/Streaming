@@ -1,0 +1,88 @@
+---
+- name: Disaster Recovery Procedures
+  hosts: all
+  become: yes
+  vars:
+    backup_location: "/backup"
+    restore_location: "/restore"
+    
+  tasks:
+    - name: Create backup directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ backup_location }}"
+        - "{{ restore_location }}"
+    
+    - name: Backup MongoDB
+      shell: |
+        mongodump \
+          --uri="{{ mongodb_uri }}" \
+          --out="{{ backup_location }}/mongodb-$(date +%Y%m%d-%H%M%S)"
+      environment:
+        MONGODB_URI: "{{ mongodb_uri }}"
+      register: mongodb_backup
+      changed_when: false
+    
+    - name: Backup PostgreSQL
+      shell: |
+        PGPASSWORD="{{ postgres_password }}" pg_dump \
+          -h {{ postgres_host }} \
+          -U {{ postgres_user }} \
+          -d {{ postgres_db }} \
+          -F c \
+          -f "{{ backup_location }}/postgres-$(date +%Y%m%d-%H%M%S).dump"
+      environment:
+        PGPASSWORD: "{{ postgres_password }}"
+      register: postgres_backup
+      changed_when: false
+    
+    - name: Backup Kubernetes resources
+      shell: |
+        kubectl get all -n streamverse -o yaml > \
+          "{{ backup_location }}/k8s-$(date +%Y%m%d-%H%M%S).yaml"
+      register: k8s_backup
+      changed_when: false
+    
+    - name: Upload backups to S3
+      shell: |
+        aws s3 cp {{ backup_location }}/ \
+          s3://streamverse-backups/$(date +%Y%m%d)/ \
+          --recursive \
+          --exclude "*" \
+          --include "mongodb-*" \
+          --include "postgres-*" \
+          --include "k8s-*"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+      when: upload_to_s3 | default(false) | bool
+    
+    - name: Restore MongoDB (if needed)
+      shell: |
+        mongorestore \
+          --uri="{{ mongodb_uri }}" \
+          "{{ restore_location }}/mongodb-{{ restore_timestamp }}"
+      when: restore_mongodb | default(false) | bool
+      environment:
+        MONGODB_URI: "{{ mongodb_uri }}"
+    
+    - name: Restore PostgreSQL (if needed)
+      shell: |
+        PGPASSWORD="{{ postgres_password }}" pg_restore \
+          -h {{ postgres_host }} \
+          -U {{ postgres_user }} \
+          -d {{ postgres_db }} \
+          -c \
+          "{{ restore_location }}/postgres-{{ restore_timestamp }}.dump"
+      when: restore_postgres | default(false) | bool
+      environment:
+        PGPASSWORD: "{{ postgres_password }}"
+    
+    - name: Restore Kubernetes resources (if needed)
+      shell: |
+        kubectl apply -f "{{ restore_location }}/k8s-{{ restore_timestamp }}.yaml"
+      when: restore_k8s | default(false) | bool
+

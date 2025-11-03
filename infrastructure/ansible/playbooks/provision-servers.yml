@@ -1,0 +1,119 @@
+---
+- name: Provision StreamVerse Infrastructure
+  hosts: all
+  become: yes
+  vars:
+    docker_version: "24.0"
+    kubernetes_version: "1.28"
+    
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+      
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - vim
+          - htop
+          - net-tools
+        state: present
+      when: ansible_os_family == "Debian"
+    
+    - name: Configure firewall
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "22"    # SSH
+        - "6443"  # Kubernetes API
+        - "10250" # Kubelet
+        - "2379"  # etcd
+        - "2380"  # etcd
+      state: enabled
+    
+    - name: Install Docker
+      shell: |
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+        usermod -aG docker {{ ansible_user }}
+      args:
+        creates: /usr/bin/docker
+    
+    - name: Configure Docker daemon
+      copy:
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            },
+            "storage-driver": "overlay2"
+          }
+        dest: /etc/docker/daemon.json
+      notify: restart docker
+    
+    - name: Install Kubernetes tools
+      shell: |
+        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+        echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+        apt-get update
+        apt-get install -y kubelet={{ kubernetes_version }}-00 kubeadm={{ kubernetes_version }}-00 kubectl={{ kubernetes_version }}-00
+        apt-mark hold kubelet kubeadm kubectl
+      args:
+        creates: /usr/bin/kubectl
+    
+    - name: Disable swap
+      command: swapoff -a
+      ignore_errors: yes
+    
+    - name: Comment out swap in /etc/fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+        replace: '# \1'
+    
+    - name: Configure sysctl for Kubernetes
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        sysctl_set: yes
+        reload: yes
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward", value: "1" }
+      when: ansible_os_family == "Debian"
+    
+    - name: Set timezone
+      timezone:
+        name: UTC
+    
+    - name: Configure log rotation
+      copy:
+        content: |
+          /var/log/*.log {
+            daily
+            rotate 7
+            compress
+            delaycompress
+            missingok
+            notifempty
+          }
+        dest: /etc/logrotate.d/streamverse
+    
+  handlers:
+    - name: restart docker
+      systemd:
+        name: docker
+        state: restarted
+        enabled: yes
+
