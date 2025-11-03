@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="StreamVerse - Streaming platform for Samsung Tizen TV">
+    <title>StreamVerse</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-container">
+                <h1>StreamVerse</h1>
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        </div>
+
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen">
+            <div class="login-container">
+                <h1 class="app-title">StreamVerse</h1>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" class="tv-input" autocomplete="email" />
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" class="tv-input" autocomplete="current-password" />
+                    </div>
+                    <div id="login-error" class="error-message"></div>
+                    <button type="submit" id="login-button" class="tv-button primary">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Home Screen -->
+        <div id="home-screen" class="screen">
+            <header class="header">
+                <h1>StreamVerse</h1>
+                <div class="header-actions">
+                    <button id="search-button" class="tv-button icon-button">🔍</button>
+                    <button id="settings-button" class="tv-button icon-button">⚙️</button>
+                </div>
+            </header>
+
+            <main class="content-container" id="content-container">
+                <!-- Content rows will be dynamically inserted here -->
+            </main>
+        </div>
+
+        <!-- Detail Screen -->
+        <div id="detail-screen" class="screen">
+            <button id="back-button" class="tv-button back-button">← Back</button>
+            <div id="detail-content" class="detail-content">
+                <!-- Content details will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <!-- Search Screen -->
+        <div id="search-screen" class="screen">
+            <header class="header">
+                <button id="search-back-button" class="tv-button back-button">← Back</button>
+                <h1>Search</h1>
+            </header>
+            <div class="search-container">
+                <input type="text" id="search-input" class="tv-input search-input" placeholder="Search content..." />
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="settings-screen" class="screen">
+            <header class="header">
+                <button id="settings-back-button" class="tv-button back-button">← Back</button>
+                <h1>Settings</h1>
+            </header>
+            <div class="settings-container">
+                <div class="settings-section">
+                    <h2>Account</h2>
+                    <div id="user-info" class="user-info"></div>
+                    <button id="logout-button" class="tv-button danger">Logout</button>
+                </div>
+                <div class="settings-section">
+                    <h2>Playback</h2>
+                    <label>
+                        <span>Video Quality</span>
+                        <select id="quality-select" class="tv-select">
+                            <option value="auto">Auto</option>
+                            <option value="1080p">1080p</option>
+                            <option value="720p">720p</option>
+                            <option value="480p">480p</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Player -->
+        <div id="player-screen" class="screen">
+            <div id="player-container" class="player-container"></div>
+            <div class="player-overlay">
+                <button id="player-close-button" class="tv-button close-button">✕</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/content.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
+

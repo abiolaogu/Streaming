@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://yourdomain.com/StreamVerse"
+        version="1.0.0"
+        viewmodes="maximized">
+    <name>StreamVerse</name>
+    <description>StreamVerse - Streaming platform for Samsung Tizen TV</description>
+    <author href="https://streamverse.com" email="support@streamverse.com">StreamVerse Team</author>
+    <license href="https://streamverse.com/license"/>
+    
+    <icon src="icon.png"/>
+    <content src="index.html"/>
+    
+    <feature name="http://tizen.org/feature/screen.size.normal"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    
+    <tizen:application id="com.streamverse.tizen" package="com.streamverse" required_version="6.0"/>
+    
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/network.get"/>
+    <tizen:privilege name="http://tizen.org/privilege/display"/>
+    
+    <tizen:setting screen-orientation="landscape" context-menu="enable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+    
+    <tizen:metadata key="http://samsung.com/tv/metadata/contentRating" value="ALL"/>
+</widget>
+
