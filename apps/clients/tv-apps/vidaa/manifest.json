@@ -1,0 +1,15 @@
+{
+  "id": "com.streamverse.vidaa",
+  "version": "1.0.0",
+  "vendor": "StreamVerse",
+  "type": "web",
+  "main": "index.html",
+  "title": "StreamVerse",
+  "icon": "icon.png",
+  "largeIcon": "icon.png",
+  "resolution": "1920x1080",
+  "appDescription": "StreamVerse - Streaming platform for VIDAA TV",
+  "appIcon": "icon.png",
+  "splashImage": "splash.png"
+}
+

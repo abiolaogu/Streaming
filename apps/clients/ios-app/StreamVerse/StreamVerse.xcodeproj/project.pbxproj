@@ -1,0 +1,56 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA1111111111111111111111 /* StreamVerseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1111111111111111111112 /* StreamVerseApp.swift */; };
+		AA1111111111111111111113 /* ContentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1111111111111111111114 /* ContentListView.swift */; };
+		AA1111111111111111111115 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1111111111111111111116 /* LoginView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA1111111111111111111117 /* StreamVerse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StreamVerse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA1111111111111111111112 /* StreamVerseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamVerseApp.swift; sourceTree = "<group>"; };
+		AA1111111111111111111114 /* ContentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentListView.swift; sourceTree = "<group>"; };
+		AA1111111111111111111116 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		AA1111111111111111111118 = {
+			isa = PBXGroup;
+			children = (
+				AA1111111111111111111119 /* StreamVerse */,
+				AA1111111111111111111120 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA1111111111111111111120 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA1111111111111111111117 /* StreamVerse.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA1111111111111111111119 /* StreamVerse */ = {
+			isa = PBXGroup;
+			children = (
+				AA1111111111111111111112 /* StreamVerseApp.swift */,
+				AA1111111111111111111121 /* Views */,
+				AA1111111111111111111122 /* Models */,
+				AA1111111111111111111123 /* Services */,
+				AA1111111111111111111124 /* ViewModels */,
+				AA1111111111111111111125 /* Resources */,
+			);
+			path = StreamVerse;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+	};
+	rootObject = AA1111111111111111111126 /* Project object */;
+}
+

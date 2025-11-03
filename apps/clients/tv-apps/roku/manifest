@@ -1,0 +1,32 @@
+## Channel Details
+title=StreamVerse
+major_version=1
+minor_version=0
+build_version=00001
+
+## Assets
+## Main channel library (required)
+#
+# This is the path to your channel's main zip file. If you put the channel files into a folder
+# called 'source' then you should use the path 'source/StreamVerse.zip'.
+#
+mm_icon_focus_hd=pkg:/images/icon-focus-hd.png
+mm_icon_side_focus_hd=pkg:/images/icon-side-focus-hd.png
+splash_screen_hd=pkg:/images/splash-screen-hd.jpg
+splash_screen_fhd=pkg:/images/splash-screen-fhd.jpg
+
+## Channel Loading
+# If you want to use custom fonts, include them in the zip and add:
+# mm_fonts=your_font_name
+#
+# If you're using the FontCache plugin, include your font file in the zip and add:
+# mm_fonts=FNT_FontCache
+#
+# If you want to use component libraries, include them in the zip and add:
+# mm_libs=your_lib_name
+
+## Brightscript Configuration
+# This is the path to your BrightScript entry point
+bs_const=
+channel_width=1280
+channel_height=720

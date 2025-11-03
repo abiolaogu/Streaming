@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="ContentDetailScreen" extends="Scene">
+    <script type="text/brightscript" uri="ContentDetailScreen.brs"/>
+    <children>
+        <Poster id="backdrop" 
+                uri="" 
+                width="1920" 
+                height="600"
+                translation="[0, 0]"/>
+        
+        <Label id="title" 
+               text="" 
+               font="font:LargeBoldSystemFont" 
+               color="0xFFFFFF"
+               translation="[50, 650]"
+               width="1800"/>
+        
+        <Label id="meta" 
+               text="" 
+               font="font:MediumSystemFont" 
+               color="0xCCCCCC"
+               translation="[50, 720]"
+               width="1800"/>
+        
+        <Label id="description" 
+               text="" 
+               font="font:SmallSystemFont" 
+               color="0xFFFFFF"
+               translation="[50, 800]"
+               width="1800"
+               numLines="5"/>
+        
+        <Button id="playButton"
+                text="Play"
+                translation="[50, 950]"
+                width="200"
+                height="60"/>
+    </children>
+</component>
+
