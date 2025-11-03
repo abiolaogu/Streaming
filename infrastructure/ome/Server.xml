@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OvenMediaEngine (OME) Configuration -->
+<!-- Issue #23: Live Ingest Setup -->
+
+<Server>
+    <Bind>
+        <Providers>
+            <!-- RTMP Ingest -->
+            <RTMP>
+                <Port>1935</Port>
+                <WorkerCount>4</WorkerCount>
+            </RTMP>
+            
+            <!-- SRT Ingest (backup) -->
+            <SRT>
+                <Port>9999</Port>
+                <WorkerCount>4</WorkerCount>
+            </SRT>
+            
+            <!-- WebRTC Ingest (for browser) -->
+            <WebRTC>
+                <Signalling>
+                    <Port>3333</Port>
+                    <TLSPort>3334</TLSPort>
+                    <WorkerCount>4</WorkerCount>
+                </Signalling>
+            </WebRTC>
+        </Providers>
+        
+        <Publishers>
+            <!-- LL-HLS Output (low-latency) -->
+            <LLHLS>
+                <Port>8080</Port>
+                <TLSPort>8443</TLSPort>
+                <WorkerCount>4</WorkerCount>
+            </LLHLS>
+            
+            <!-- DASH Output -->
+            <DASH>
+                <Port>8081</Port>
+                <TLSPort>8444</TLSPort>
+                <WorkerCount>4</WorkerCount>
+            </DASH>
+            
+            <!-- WebRTC Output -->
+            <WebRTC>
+                <Port>3478</Port>
+                <TLSPort>5349</TLSPort>
+                <WorkerCount>4</WorkerCount>
+            </WebRTC>
+        </Publishers>
+    </Bind>
+    
+    <VirtualHosts>
+        <VirtualHost>
+            <Name>default</Name>
+            
+            <!-- Applications for live streaming -->
+            <Applications>
+                <Application>
+                    <Name>live</Name>
+                    <Type>live</Type>
+                    
+                    <!-- Input Streams -->
+                    <OutputProfiles>
+                        <!-- LL-HLS Profile (2s segments, 6 parts for low latency) -->
+                        <OutputProfile>
+                            <Name>llhls</Name>
+                            <OutputStreamName>${OriginStreamName}_llhls</OutputStreamName>
+                            <Encodes>
+                                <!-- 240p -->
+                                <Video>
+                                    <Name>video_240p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>426</Width>
+                                    <Height>240</Height>
+                                    <Bitrate>512000</Bitrate>
+                                    <Framerate>24</Framerate>
+                                </Video>
+                                
+                                <!-- 360p -->
+                                <Video>
+                                    <Name>video_360p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>640</Width>
+                                    <Height>360</Height>
+                                    <Bitrate>1500000</Bitrate>
+                                    <Framerate>24</Framerate>
+                                </Video>
+                                
+                                <!-- 480p -->
+                                <Video>
+                                    <Name>video_480p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>854</Width>
+                                    <Height>480</Height>
+                                    <Bitrate>2500000</Bitrate>
+                                    <Framerate>24</Framerate>
+                                </Video>
+                                
+                                <!-- 720p -->
+                                <Video>
+                                    <Name>video_720p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>1280</Width>
+                                    <Height>720</Height>
+                                    <Bitrate>5000000</Bitrate>
+                                    <Framerate>30</Framerate>
+                                </Video>
+                                
+                                <!-- 1080p -->
+                                <Video>
+                                    <Name>video_1080p</Name>
+                                    <Codec>h265</Codec>
+                                    <Width>1920</Width>
+                                    <Height>1080</Height>
+                                    <Bitrate>8000000</Bitrate>
+                                    <Framerate>30</Framerate>
+                                </Video>
+                                
+                                <!-- 4K -->
+                                <Video>
+                                    <Name>video_4k</Name>
+                                    <Codec>h265</Codec>
+                                    <Width>3840</Width>
+                                    <Height>2160</Height>
+                                    <Bitrate>15000000</Bitrate>
+                                    <Framerate>60</Framerate>
+                                </Video>
+                                
+                                <!-- Audio -->
+                                <Audio>
+                                    <Name>audio</Name>
+                                    <Codec>aac</Codec>
+                                    <Bitrate>128000</Bitrate>
+                                    <Samplerate>48000</Samplerate>
+                                    <Channel>2</Channel>
+                                </Audio>
+                            </Encodes>
+                            
+                            <Encoders>
+                                <!-- Use hardware acceleration if available -->
+                                <Video>
+                                    <HardwareAcceleration>true</HardwareAcceleration>
+                                    <Codec>h264</Codec>
+                                    <Preset>fast</Preset>
+                                </Video>
+                            </Encoders>
+                            
+                            <!-- LL-HLS Settings -->
+                            <Segment>
+                                <Duration>2</Duration>  <!-- 2 second segments -->
+                                <PartDuration>0.33</PartDuration>  <!-- 6 parts per segment -->
+                                <Separator></Separator>
+                            </Segment>
+                        </OutputProfile>
+                    </OutputProfiles>
+                    
+                    <!-- Failover Configuration -->
+                    <Failover>
+                        <Enabled>true</Enabled>
+                        <FailbackThreshold>3</FailbackThreshold>
+                    </Failover>
+                </Application>
+            </Applications>
+        </VirtualHost>
+    </VirtualHosts>
+    
+    <!-- Logging -->
+    <Log>
+        <Path>/var/log/ovenmediaengine</Path>
+        <Level>info</Level>
+    </Log>
+</Server>
+
