@@ -8,6 +8,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/streamverse/common-go/config"
 	"github.com/streamverse/common-go/database"
@@ -40,8 +43,17 @@ func main() {
 	}
 	defer db.Disconnect(context.Background())
 
+	// Initialize S3 client
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-1")},
+	)
+	if err != nil {
+		log.Fatal("Failed to create S3 session", logger.Error(err))
+	}
+	s3Client := s3.New(sess)
+
 	// Initialize repository
-	transcodingRepo := repository.NewTranscodingRepository(db)
+	transcodingRepo := repository.NewTranscodingRepository(db, s3Client)
 
 	// Initialize service
 	transcodingService := service.NewTranscodingService(transcodingRepo)
@@ -68,6 +80,11 @@ func main() {
 		api.GET("/jobs", transcodingHandler.ListTranscodeJobs)          // GET /transcode/jobs (with filters)
 		api.GET("/profiles", transcodingHandler.ListProfiles)           // GET /transcode/profiles
 		api.POST("/profiles", transcodingHandler.CreateProfile)         // POST /transcode/profiles
+
+		// Resumable Upload Routes - Issue #29
+		api.POST("/uploads", transcodingHandler.InitiateUpload)
+		api.POST("/uploads/:upload_id/parts", transcodingHandler.UploadPart)
+		api.POST("/uploads/:upload_id/complete", transcodingHandler.CompleteUpload)
 	}
 
 	// Start server
@@ -101,4 +118,3 @@ func main() {
 
 	log.Info("Server exited")
 }
-

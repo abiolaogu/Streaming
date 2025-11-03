@@ -1,12 +1,12 @@
 
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
+import { GEMINI_API_KEY } from "../config";
 
 const getApiClient = () => {
-  const API_KEY = process.env.API_KEY;
-  if (!API_KEY) {
-    throw new Error("API_KEY is not configured.");
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === "your_api_key_here") {
+    throw new Error("API_KEY is not configured. Please add your key to config.ts");
   }
-  return new GoogleGenAI({ apiKey: API_KEY });
+  return new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 };
 
 const handleApiError = (error: unknown): string => {
@@ -14,7 +14,7 @@ const handleApiError = (error: unknown): string => {
 
   // Check for the specific API key error and dispatch an event for the UI to handle.
   const errorObj = error as { error?: { message?: string, status?: string } };
-  if (errorObj?.error?.message?.includes("Requested entity was not found") || errorObj?.error?.status === 'NOT_FOUND') {
+  if (errorObj?.error?.message?.includes("API key not valid") || errorObj?.error?.status === 'PERMISSION_DENIED') {
     window.dispatchEvent(new CustomEvent('apiKeyError'));
     return "Error: Your API Key is no longer valid. Please select a new key to continue.";
   }

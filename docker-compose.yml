@@ -1,0 +1,24 @@
+
+version: '3.8'
+services:
+  content-service:
+    build:
+      context: ./services/content-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+  streaming-service:
+    build:
+      context: ./services/streaming-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - content-service
+      - payment-service

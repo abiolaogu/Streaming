@@ -7,6 +7,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/streamverse/streaming-service/internal/clients/content"
+	"github.com/streamverse/streaming-service/internal/clients/payment"
 	"github.com/streamverse/streaming-service/models"
 	"github.com/streamverse/streaming-service/repository"
 )
@@ -14,38 +16,27 @@ import (
 // StreamingService handles streaming business logic
 type StreamingService struct {
 	repo             *repository.StreamingRepository
-	contentRepo      ContentRepository
-	subscriptionRepo SubscriptionRepository
-	jwtSecret        string // TODO: Load from config
-}
-
-// ContentRepository interface for content service
-type ContentRepository interface {
-	GetContentByID(ctx context.Context, id string) (map[string]interface{}, error)
-}
-
-// SubscriptionRepository interface for subscription checks
-type SubscriptionRepository interface {
-	GetUserSubscription(ctx context.Context, userID string) (map[string]interface{}, error)
-	CheckConcurrentStreamLimit(ctx context.Context, userID string) (int, error)
+	contentClient    *content.Client
+	paymentClient    *payment.Client
+	jwtSecret        string
 }
 
 // NewStreamingService creates a new streaming service
 func NewStreamingService(
 	repo *repository.StreamingRepository,
-	contentRepo ContentRepository,
-	subscriptionRepo SubscriptionRepository,
+	contentClient *content.Client,
+	paymentClient *payment.Client,
 	jwtSecret string,
 ) *StreamingService {
 	return &StreamingService{
 		repo:             repo,
-		contentRepo:      contentRepo,
-		subscriptionRepo: subscriptionRepo,
+		contentClient:    contentClient,
+		paymentClient:    paymentClient,
 		jwtSecret:        jwtSecret,
 	}
 }
 
-// GenerateToken generates a JWT token for manifest access - Issue #14
+// GenerateToken generates a JWT token for manifest access
 func (s *StreamingService) GenerateToken(ctx context.Context, contentID, userID, ip, deviceID string) (*models.StreamingToken, error) {
 	now := time.Now()
 	expiresIn := 3600 // 1 hour
@@ -74,7 +65,7 @@ func (s *StreamingService) GenerateToken(ctx context.Context, contentID, userID,
 	}, nil
 }
 
-// ValidateToken validates a token and returns user_id - Issue #14
+// ValidateToken validates a token and returns user_id
 func (s *StreamingService) ValidateToken(ctx context.Context, tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -98,10 +89,10 @@ func (s *StreamingService) ValidateToken(ctx context.Context, tokenString string
 	return "", fmt.Errorf("invalid token")
 }
 
-// GenerateHLSManifest generates an HLS manifest - Issue #14
+// GenerateHLSManifest generates an HLS manifest
 func (s *StreamingService) GenerateHLSManifest(ctx context.Context, contentID, userID string) (string, error) {
 	// Get content metadata
-	content, err := s.contentRepo.GetContentByID(ctx, contentID)
+	content, err := s.contentClient.GetContent(ctx, contentID)
 	if err != nil {
 		return "", fmt.Errorf("content not found: %w", err)
 	}
@@ -122,10 +113,10 @@ func (s *StreamingService) GenerateHLSManifest(ctx context.Context, contentID, u
 	return manifest, nil
 }
 
-// GenerateDASHManifest generates a DASH manifest - Issue #14
+// GenerateDASHManifest generates a DASH manifest
 func (s *StreamingService) GenerateDASHManifest(ctx context.Context, contentID, userID string) (string, error) {
 	// Get content metadata
-	content, err := s.contentRepo.GetContentByID(ctx, contentID)
+	content, err := s.contentClient.GetContent(ctx, contentID)
 	if err != nil {
 		return "", fmt.Errorf("content not found: %w", err)
 	}
@@ -149,7 +140,7 @@ func (s *StreamingService) GenerateDASHManifest(ctx context.Context, contentID, 
 	return manifest, nil
 }
 
-// SelectABRProfile selects ABR profile based on device and network - Issue #14
+// SelectABRProfile selects ABR profile based on device and network
 func (s *StreamingService) SelectABRProfile(ctx context.Context, userID, deviceType string) string {
 	// Bitrate ladder: 240p (512k), 360p (1.5M), 480p (2.5M), 720p (5M), 1080p (8M), 4K (15M)
 	
@@ -171,7 +162,7 @@ func (s *StreamingService) SelectABRProfile(ctx context.Context, userID, deviceT
 	// TODO: Adapt based on buffer level and rebuffer events
 }
 
-// SubmitQoE submits QoE metrics - Issue #14
+// SubmitQoE submits QoE metrics
 func (s *StreamingService) SubmitQoE(ctx context.Context, event *models.QoEEvent) error {
 	// TODO: Send to Kafka topic "qoe-events" for Analytics Service
 	// For now, just log it
@@ -179,7 +170,7 @@ func (s *StreamingService) SubmitQoE(ctx context.Context, event *models.QoEEvent
 	return nil
 }
 
-// Helper methods for Issue #14
+// Helper methods
 func (s *StreamingService) detectDeviceType(ctx context.Context, userID string) string {
 	// TODO: Get device type from device registry or session
 	return "desktop" // Default
@@ -192,17 +183,17 @@ func (s *StreamingService) getCDNBaseURL() string {
 // CreateSession creates a new playback session
 func (s *StreamingService) CreateSession(ctx context.Context, userID, contentID, deviceID string) (*models.PlaybackSession, error) {
 	// Check subscription and concurrent stream limits
-	activeStreams, err := s.subscriptionRepo.CheckConcurrentStreamLimit(ctx, userID)
+	streams, err := s.paymentClient.CheckConcurrentStreams(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check stream limits: %w", err)
 	}
 
-	if activeStreams >= 4 { // Assuming max 4 concurrent streams
+	if streams.GetActiveStreams() >= 4 { // Assuming max 4 concurrent streams
 		return nil, fmt.Errorf("concurrent stream limit reached")
 	}
 
 	// Get content metadata
-	content, err := s.contentRepo.GetContentByID(ctx, contentID)
+	content, err := s.contentClient.GetContent(ctx, contentID)
 	if err != nil {
 		return nil, fmt.Errorf("content not found: %w", err)
 	}
@@ -215,7 +206,7 @@ func (s *StreamingService) CreateSession(ctx context.Context, userID, contentID,
 		UserID:        userID,
 		ContentID:     contentID,
 		Position:      0,
-		Duration:      getContentDuration(content),
+		Duration:      content.Duration,
 		Quality:       "auto",
 		LastHeartbeat: time.Now(),
 		DeviceID:      deviceID,
@@ -230,7 +221,7 @@ func (s *StreamingService) CreateSession(ctx context.Context, userID, contentID,
 // GetManifest generates HLS or DASH manifest
 func (s *StreamingService) GetManifest(ctx context.Context, contentID, format string, userID string) (*models.StreamManifest, error) {
 	// Get content metadata
-	content, err := s.contentRepo.GetContentByID(ctx, contentID)
+	content, err := s.contentClient.GetContent(ctx, contentID)
 	if err != nil {
 		return nil, fmt.Errorf("content not found: %w", err)
 	}
@@ -251,7 +242,7 @@ func (s *StreamingService) GetManifest(ctx context.Context, contentID, format st
 
 	// Get DRM info if protected
 	var drmInfo *models.DRMInfo
-	if isDRMProtected(content) {
+	if content.IsDrmProtected {
 		drmInfo = s.getDRMInfo(content, format)
 	}
 
@@ -312,7 +303,7 @@ func (s *StreamingService) checkGeoRestrictions(ctx context.Context, contentID, 
 	return nil
 }
 
-func (s *StreamingService) getDRMInfo(content map[string]interface{}, format string) *models.DRMInfo {
+func (s *StreamingService) getDRMInfo(content *content.GetContentResponse, format string) *models.DRMInfo {
 	drmType := getDRMType(content, format)
 	return &models.DRMInfo{
 		Type:        drmType,
@@ -321,28 +312,11 @@ func (s *StreamingService) getDRMInfo(content map[string]interface{}, format str
 	}
 }
 
-func getContentDuration(content map[string]interface{}) int64 {
-	if duration, ok := content["duration"].(int64); ok {
-		return duration
-	}
-	return 0
-}
-
-func isDRMProtected(content map[string]interface{}) bool {
-	if protected, ok := content["isDrmProtected"].(bool); ok {
-		return protected
-	}
-	return false
-}
-
-func getDRMType(content map[string]interface{}, format string) string {
+func getDRMType(content *content.GetContentResponse, format string) string {
 	if format == "dash" {
 		return "widevine"
 	}
-	if drmType, ok := content["drmType"].(string); ok {
-		return drmType
-	}
-	return "widevine"
+	return content.DrmType
 }
 
 func getCertificateURL(drmType string) string {

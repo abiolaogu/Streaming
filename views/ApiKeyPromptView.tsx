@@ -8,8 +8,13 @@ interface ApiKeyPromptViewProps {
 
 const ApiKeyPromptView: React.FC<ApiKeyPromptViewProps> = ({ onKeySelected }) => {
   const handleSelectKey = async () => {
-    await (window as any).aistudio.openSelectKey();
-    onKeySelected(); // Optimistically update the UI to show the app
+    if ((window as any).aistudio && typeof (window as any).aistudio.openSelectKey === 'function') {
+      await (window as any).aistudio.openSelectKey();
+      onKeySelected(); // Optimistically update the UI to show the app
+    } else {
+      console.error("AI Studio API is not available.");
+      alert("Error: The AI Studio API is not available in this context. Please ensure you are running this in the correct environment.");
+    }
   };
 
   return (

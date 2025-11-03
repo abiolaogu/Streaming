@@ -4,9 +4,12 @@ go 1.21
 
 require (
 	github.com/gin-gonic/gin v1.9.1
+	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/streamverse/common-go v0.0.0
 	go.mongodb.org/mongo-driver v1.13.1
 	go.uber.org/zap v1.26.0
+	google.golang.org/grpc v1.62.0
+	google.golang.org/protobuf v1.32.0
 )
 
 replace github.com/streamverse/common-go => ../../packages/common-go

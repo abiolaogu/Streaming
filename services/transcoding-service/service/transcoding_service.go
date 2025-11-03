@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
+	"mime/multipart"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/streamverse/transcoding-service/models"
 	"github.com/streamverse/transcoding-service/repository"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // TranscodingService handles transcoding business logic
@@ -105,4 +106,29 @@ func (s *TranscodingService) CreateProfile(ctx context.Context, name, codec stri
 		"fps":        fps,
 	}
 	return profile, nil
+}
+
+// UploadPart defines a part of a multipart upload - Issue #29
+type UploadPart struct {
+	ETag       string
+	PartNumber int
+}
+
+// InitiateUpload initiates a multipart upload - Issue #29
+func (s *TranscodingService) InitiateUpload(ctx context.Context, fileName string, fileSize int64) (string, error) {
+	return s.repo.InitiateUpload(ctx, fileName, fileSize)
+}
+
+// UploadPart uploads a part of a multipart upload - Issue #29
+func (s *TranscodingService) UploadPart(ctx context.Context, uploadID string, partNumber int, file *multipart.FileHeader) (string, error) {
+	return s.repo.UploadPart(ctx, uploadID, partNumber, file)
+}
+
+// CompleteUpload completes a multipart upload - Issue #29
+func (s *TranscodingService) CompleteUpload(ctx context.Context, uploadID string, parts []UploadPart) (string, error) {
+	completedParts := make([]repository.UploadPart, len(parts))
+	for i, p := range parts {
+		completedParts[i] = repository.UploadPart(p)
+	}
+	return s.repo.CompleteUpload(ctx, uploadID, completedParts)
 }

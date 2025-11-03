@@ -45,16 +45,24 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkKey = async () => {
-        if ((window as any).aistudio && await (window as any).aistudio.hasSelectedApiKey()) {
-            setIsKeySelected(true);
-        }
-        setHasCheckedKey(true);
+      // Check for local dev environment variable first
+      if (import.meta.env.VITE_GEMINI_API_KEY) {
+        setIsKeySelected(true);
+      } 
+      // If no env var, check for AI Studio environment
+      else if ((window as any).aistudio && await (window as any).aistudio.hasSelectedApiKey()) {
+        setIsKeySelected(true);
+      }
+      setHasCheckedKey(true);
     };
     checkKey();
 
     const handleApiKeyError = () => {
         console.warn('API key error detected. Prompting for new key.');
-        setIsKeySelected(false);
+        // For local dev, this indicates the key is bad. For AI Studio, it will re-trigger the prompt.
+        if (!import.meta.env.VITE_GEMINI_API_KEY) {
+          setIsKeySelected(false);
+        }
     };
 
     window.addEventListener('apiKeyError', handleApiKeyError);
@@ -144,6 +152,7 @@ const App: React.FC = () => {
     );
   }
 
+  // Only show the prompt if no key is selected and we are not in a local dev environment with a key
   if (!isKeySelected) {
     return <ApiKeyPromptView onKeySelected={handleKeySelected} />;
   }

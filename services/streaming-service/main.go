@@ -13,6 +13,8 @@ import (
 	"github.com/streamverse/common-go/database"
 	"github.com/streamverse/common-go/logger"
 	"github.com/streamverse/common-go/middleware"
+	"github.com/streamverse/streaming-service/internal/clients/content"
+	"github.com/streamverse/streaming-service/internal/clients/payment"
 	streamingHandler "github.com/streamverse/streaming-service/handlers"
 	"github.com/streamverse/streaming-service/repository"
 	"github.com/streamverse/streaming-service/service"
@@ -43,12 +45,25 @@ func main() {
 	// Initialize repository
 	streamingRepo := repository.NewStreamingRepository(db)
 
-	// Initialize service (with mock repositories for now)
+	// Initialize gRPC clients
+	contentClient, err := content.NewClient(cfg.ContentServiceAddr)
+	if err != nil {
+		log.Fatal("Failed to connect to content service", logger.Error(err))
+	}
+	defer contentClient.Close()
+
+	paymentClient, err := payment.NewClient(cfg.PaymentServiceAddr)
+	if err != nil {
+		log.Fatal("Failed to connect to payment service", logger.Error(err))
+	}
+	defer paymentClient.Close()
+
+	// Initialize service
 	streamingService := service.NewStreamingService(
 		streamingRepo,
-		nil, // ContentRepository - would integrate with content service
-		nil, // SubscriptionRepository - would integrate with payment service
-		cfg.JWT.SecretKey, // JWT secret for token generation
+		contentClient,
+		paymentClient,
+		cfg.JWT.SecretKey,
 	)
 
 	// Initialize handlers
@@ -64,7 +79,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
 
-	// Streaming routes - Issue #14: Routes updated to match requirements
+	// Streaming routes
 	api := router.Group("/streaming")
 	{
 		// Manifest endpoints with token
@@ -74,7 +89,7 @@ func main() {
 		api.POST("/token", middleware.AuthMiddleware(cfg.JWT.SecretKey), streamingHandler.GenerateToken)
 		// QoE metrics
 		api.POST("/qoe", middleware.AuthMiddleware(cfg.JWT.SecretKey), streamingHandler.SubmitQoE)
-		// Session management (optional)
+		// Session management
 		api.POST("/sessions", middleware.AuthMiddleware(cfg.JWT.SecretKey), streamingHandler.CreateSession)
 		api.PUT("/sessions/:sessionId/position", middleware.AuthMiddleware(cfg.JWT.SecretKey), streamingHandler.UpdatePosition)
 		api.POST("/sessions/:sessionId/heartbeat", middleware.AuthMiddleware(cfg.JWT.SecretKey), streamingHandler.Heartbeat)

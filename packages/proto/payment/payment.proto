@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "github.com/streamverse/proto/gen/go/payment";
+
+// The payment service definition.
+service PaymentService {
+  // Gets the user's subscription status.
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  // Checks the user's concurrent stream limit.
+  rpc CheckConcurrentStreams(CheckConcurrentStreamsRequest) returns (CheckConcurrentStreamsResponse);
+}
+
+// The request message containing the user ID.
+message GetSubscriptionRequest {
+  string user_id = 1;
+}
+
+// The response message containing the subscription status.
+message GetSubscriptionResponse {
+  bool is_active = 1;
+}
+
+// The request message containing the user ID.
+message CheckConcurrentStreamsRequest {
+  string user_id = 1;
+}
+
+// The response message containing the number of active streams.
+message CheckConcurrentStreamsResponse {
+  int32 active_streams = 1;
+}

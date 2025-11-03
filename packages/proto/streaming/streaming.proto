@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package streaming;
+
+option go_package = "github.com/streamverse/proto/gen/go/streaming";
+
+import "google/protobuf/timestamp.proto";
+
+// The streaming service definition.
+service StreamingService {
+  // Generates a manifest for a given content ID.
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+}
+
+// The request message containing the content ID.
+message GetManifestRequest {
+  string content_id = 1;
+  string user_id = 2;
+  string format = 3;
+}
+
+// The response message containing the manifest.
+message GetManifestResponse {
+  string manifest_url = 1;
+  string format = 2;
+  repeated QualityLevel quality_levels = 3;
+  repeated SubtitleTrack subtitle_tracks = 4;
+  DRMInfo drm_info = 5;
+}
+
+message QualityLevel {
+  string id = 1;
+  string resolution = 2;
+  int32 bitrate = 3;
+  string codec = 4;
+  string url = 5;
+}
+
+message SubtitleTrack {
+  string language = 1;
+  string label = 2;
+  string url = 3;
+  string format = 4;
+}
+
+message DRMInfo {
+  string type = 1;
+  string license_url = 2;
+  string certificate_url = 3;
+}

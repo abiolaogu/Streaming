@@ -129,3 +129,78 @@ func (h *TranscodingHandler) CreateProfile(c *gin.Context) {
 	c.JSON(http.StatusCreated, profile)
 }
 
+// InitiateUpload handles POST /transcode/uploads - Issue #29
+func (h *TranscodingHandler) InitiateUpload(c *gin.Context) {
+	var req struct {
+		FileName string `json:"file_name" binding:"required"`
+		FileSize int64  `json:"file_size" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errors.NewInvalidInputError(err.Error()))
+		return
+	}
+
+	uploadID, err := h.service.InitiateUpload(c.Request.Context(), req.FileName, req.FileSize)
+	if err != nil {
+		h.logger.Error("Failed to initiate upload", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, errors.NewInternalError("Failed to initiate upload"))
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"upload_id": uploadID})
+}
+
+// UploadPart handles POST /transcode/uploads/:upload_id/parts - Issue #29
+func (h *TranscodingHandler) UploadPart(c *gin.Context) {
+	uploadID := c.Param("upload_id")
+	partNumber, err := strconv.Atoi(c.Query("part_number"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errors.NewInvalidInputError("Invalid part number"))
+		return
+	}
+
+	file, err := c.FormFile("part")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errors.NewInvalidInputError("Missing part"))
+		return
+	}
+
+	etag, err := h.service.UploadPart(c.Request.Context(), uploadID, partNumber, file)
+	if err != nil {
+		h.logger.Error("Failed to upload part", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, errors.NewInternalError("Failed to upload part"))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"etag": etag})
+}
+
+// CompleteUpload handles POST /transcode/uploads/:upload_id/complete - Issue #29
+func (h *TranscodingHandler) CompleteUpload(c *gin.Context) {
+	uploadID := c.Param("upload_id")
+
+	var req struct {
+		Parts []struct {
+			ETag       string `json:"etag" binding:"required"`
+			PartNumber int    `json:"part_number" binding:"required"`
+		} `json:"parts" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errors.NewInvalidInputError(err.Error()))
+		return
+	}
+
+	parts := make([]service.UploadPart, len(req.Parts))
+	for i, p := range req.Parts {
+		parts[i] = service.UploadPart{ETag: p.ETag, PartNumber: p.PartNumber}
+	}
+
+	location, err := h.service.CompleteUpload(c.Request.Context(), uploadID, parts)
+	if err != nil {
+		h.logger.Error("Failed to complete upload", logger.Error(err))
+		c.JSON(http.StatusInternalServerError, errors.NewInternalError("Failed to complete upload"))
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"location": location})
+}
