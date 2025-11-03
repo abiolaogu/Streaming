@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  traffic-ops:
+    image: apache/trafficcontrol:latest
+    environment:
+      TO_DB_HOST: postgres
+      TO_DB_USER: traffic_ops
+      TO_DB_PASSWORD: ${TO_DB_PASSWORD}
+    ports:
+      - "443:443"
+    depends_on:
+      - postgres
+
+  traffic-router:
+    image: apache/trafficcontrol:latest
+    environment:
+      TO_HOST: traffic-ops
+    ports:
+      - "53:53/udp"
+      - "80:80"
+      - "443:443"
+
+  traffic-server:
+    image: apache/trafficcontrol:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config:/etc/trafficserver
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: traffic_ops
+      POSTGRES_PASSWORD: ${TO_DB_PASSWORD}
+      POSTGRES_DB: traffic_ops
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+

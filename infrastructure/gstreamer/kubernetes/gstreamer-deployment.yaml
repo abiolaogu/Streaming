@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gstreamer-worker
+  namespace: media
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gstreamer-worker
+  template:
+    metadata:
+      labels:
+        app: gstreamer-worker
+    spec:
+      containers:
+      - name: worker
+        image: streamverse/gstreamer-worker:latest
+        env:
+        - name: KAFKA_BROKERS
+          value: "kafka:9092"
+        - name: KAFKA_TOPIC
+          value: "transcoding"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: TRANSCODING_SERVICE_URL
+          value: "http://transcoding-service:8080"
+        - name: GPU_ENABLED
+          value: "false"  # Set to "true" if GPU nodes available
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 4Gi
+          limits:
+            cpu: 4000m
+            memory: 8Gi
+        volumeMounts:
+        - name: input-storage
+          mountPath: /input
+        - name: output-storage
+          mountPath: /output
+      volumes:
+      - name: input-storage
+        persistentVolumeClaim:
+          claimName: transcoding-input-pvc
+      - name: output-storage
+        persistentVolumeClaim:
+          claimName: transcoding-output-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: transcoding-input-pvc
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: transcoding-output-pvc
+  namespace: media
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gstreamer-worker-hpa
+  namespace: media
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gstreamer-worker
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: External
+    external:
+      metric:
+        name: kafka_consumer_lag
+      target:
+        type: Value
+        value: "100"  # Scale up if queue depth > 100
+

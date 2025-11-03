@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  ome:
+    image: airensoft/ovenmediaengine:latest
+    container_name: ome
+    ports:
+      # RTMP Ingest
+      - "1935:1935"
+      # SRT Ingest
+      - "9999:9999/udp"
+      # WebRTC Signalling
+      - "3333:3333"
+      - "3334:3334"
+      # LL-HLS Output
+      - "8080:8080"
+      - "8443:8443"
+      # DASH Output
+      - "8081:8081"
+      - "8444:8444"
+      # WebRTC Output
+      - "3478:3478/udp"
+      - "5349:5349"
+      # RTP/UDP range for WebRTC
+      - "10000-10100:10000-10100/udp"
+    volumes:
+      - ./Server.xml:/opt/ovenmediaengine/bin/origin_conf/Server.xml:ro
+      - ./logs:/var/log/ovenmediaengine
+      - ./recordings:/var/www/recordings
+    environment:
+      - OME_DOCKER_ENV=true
+    restart: unless-stopped
+    networks:
+      - streamverse-network
+
+  # Backup OME instance for failover
+  ome-backup:
+    image: airensoft/ovenmediaengine:latest
+    container_name: ome-backup
+    ports:
+      - "1936:1935"
+      - "9998:9999/udp"
+      - "3335:3333"
+    volumes:
+      - ./Server.xml:/opt/ovenmediaengine/bin/origin_conf/Server.xml:ro
+    environment:
+      - OME_DOCKER_ENV=true
+    restart: unless-stopped
+    networks:
+      - streamverse-network
+    profiles:
+      - failover
+
+networks:
+  streamverse-network:
+    external: true
+

@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package streamverse.content.v1;
+
+option go_package = "github.com/streamverse/proto/gen/go/content/v1";
+
+import "google/protobuf/timestamp.proto";
+
+// Content service definition
+service ContentService {
+  rpc GetContent(GetContentRequest) returns (ContentResponse);
+  rpc ListContent(ListContentRequest) returns (ListContentResponse);
+  rpc CreateContent(CreateContentRequest) returns (ContentResponse);
+  rpc UpdateContent(UpdateContentRequest) returns (ContentResponse);
+  rpc DeleteContent(DeleteContentRequest) returns (DeleteContentResponse);
+  rpc SearchContent(SearchContentRequest) returns (SearchContentResponse);
+}
+
+// Content message
+message Content {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string genre = 4;
+  string category = 5;
+  string poster_url = 6;
+  string backdrop_url = 7;
+  string stream_url = 8;
+  int64 duration = 9;
+  int32 release_year = 10;
+  float rating = 11;
+  bool is_drm_protected = 12;
+  string drm_type = 13;
+  repeated string cast = 14;
+  repeated string directors = 15;
+  repeated string tags = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+}
+
+// Request/Response messages
+message GetContentRequest {
+  string id = 1;
+}
+
+message ListContentRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string genre = 3;
+  string category = 4;
+}
+
+message CreateContentRequest {
+  Content content = 1;
+}
+
+message UpdateContentRequest {
+  string id = 1;
+  Content content = 2;
+}
+
+message DeleteContentRequest {
+  string id = 1;
+}
+
+message SearchContentRequest {
+  string query = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ContentResponse {
+  Content content = 1;
+}
+
+message ListContentResponse {
+  repeated Content items = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message DeleteContentResponse {
+  bool success = 1;
+}
+
+message SearchContentResponse {
+  repeated Content results = 1;
+  int32 total = 2;
+}
+

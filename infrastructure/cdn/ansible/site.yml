@@ -1,0 +1,13 @@
+---
+- hosts: traffic_server_edge
+  roles:
+    - traffic_server
+
+- hosts: traffic_ops
+  roles:
+    - traffic_ops
+
+- hosts: traffic_router
+  roles:
+    - traffic_router
+
