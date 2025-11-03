@@ -1,0 +1,21 @@
+{
+  "id": "com.streamverse.webos",
+  "version": "1.0.0",
+  "vendor": "StreamVerse",
+  "type": "web",
+  "main": "index.html",
+  "title": "StreamVerse",
+  "icon": "icon.png",
+  "largeIcon": "icon.png",
+  "requiredMemory": 50,
+  "supportQuickStart": false,
+  "resolution": "1920x1080",
+  "handoff": false,
+  "disableBackHistoryAPI": true,
+  "uiRevision": 2,
+  "allowVideoCapture": true,
+  "allowAudioCapture": false,
+  "enyoBundleVersion": "2.5.1",
+  "appSize": 52428800
+}
+

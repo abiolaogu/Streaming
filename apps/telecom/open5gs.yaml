@@ -1,0 +1,202 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open5gs-amf
+  namespace: telecom
+  labels:
+    app: open5gs
+    component: amf
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: open5gs
+      component: amf
+  template:
+    metadata:
+      labels:
+        app: open5gs
+        component: amf
+    spec:
+      priorityClassName: telecom-critical
+      containers:
+      - name: amf
+        image: openverso/open5gs:main-20241009.2
+        ports:
+        - containerPort: 38412
+          name: sbi
+        - containerPort: 29518
+          name: n2
+        env:
+        - name: HOSTNAME
+          value: "amf.open5gs.svc.cluster.local"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 1Gi
+          limits:
+            cpu: "2000m"
+            memory: 4Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/open5gs
+      volumes:
+      - name: config
+        configMap:
+          name: open5gs-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open5gs-smf
+  namespace: telecom
+  labels:
+    app: open5gs
+    component: smf
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: open5gs
+      component: smf
+  template:
+    metadata:
+      labels:
+        app: open5gs
+        component: smf
+    spec:
+      priorityClassName: telecom-critical
+      containers:
+      - name: smf
+        image: openverso/open5gs:main-20241009.2
+        ports:
+        - containerPort: 29502
+          name: n4
+        env:
+        - name: HOSTNAME
+          value: "smf.open5gs.svc.cluster.local"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: 1Gi
+          limits:
+            cpu: "2000m"
+            memory: 4Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/open5gs
+      volumes:
+      - name: config
+        configMap:
+          name: open5gs-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open5gs-upf
+  namespace: telecom
+  labels:
+    app: open5gs
+    component: upf
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: open5gs
+      component: upf
+  template:
+    metadata:
+      labels:
+        app: open5gs
+        component: upf
+    spec:
+      priorityClassName: telecom-critical
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: upf
+        image: openverso/open5gs:main-20241009.2
+        ports:
+        - containerPort: 2152
+          name: n3
+          protocol: UDP
+        - containerPort: 8805
+          name: pfcp
+        env:
+        - name: HOSTNAME
+          value: "upf.open5gs.svc.cluster.local"
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: 2Gi
+          limits:
+            cpu: "4000m"
+            memory: 8Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/open5gs
+      volumes:
+      - name: config
+        configMap:
+          name: open5gs-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open5gs-amf
+  namespace: telecom
+spec:
+  selector:
+    app: open5gs
+    component: amf
+  ports:
+  - port: 29518
+    targetPort: 29518
+    name: n2
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: open5gs-config
+  namespace: telecom
+data:
+  amf.yaml: |
+    mcc: '001'
+    mnc: '01'
+    nrf:
+      addr: nrf.open5gs.svc.cluster.local
+    sbi:
+      addr: 0.0.0.0
+      port: 38412
+    ngap:
+      addr: 0.0.0.0
+    plmn_support:
+      - plmn_id:
+          mcc: '001'
+          mnc: '01'
+        s_nssai:
+          - sst: 1
+          - sst: 1
+            sd: 1
+  smf.yaml: |
+    mcc: '001'
+    mnc: '01'
+    nrf:
+      addr: nrf.open5gs.svc.cluster.local
+    sbi:
+      addr: 0.0.0.0
+      port: 29502
+    pfcp:
+      addr: 0.0.0.0
+    dnn:
+      - dnn: internet
+        ipv4:
+          pool: 10.60.0.0/16
+        ipv6:
+          pool: 2001:db8:cafe::0/48
+

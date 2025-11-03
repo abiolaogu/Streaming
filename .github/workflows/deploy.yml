@@ -1,0 +1,143 @@
+name: Deploy Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+
+env:
+  KUBECTL_VERSION: "v1.28.0"
+
+jobs:
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+          terraform_wrapper: false
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Terraform Init AWS
+        working-directory: infra/terraform/aws
+        run: terraform init
+      
+      - name: Terraform Plan AWS
+        working-directory: infra/terraform/aws
+        run: |
+          terraform plan -var-file=${{ github.event.inputs.environment || 'dev' }}.tfvars -out=tfplan
+      
+      - name: Terraform Apply AWS
+        working-directory: infra/terraform/aws
+        run: terraform apply -auto-approve tfplan
+        if: github.event_name != 'pull_request'
+      
+      - name: Configure GCP credentials
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Terraform Init GCP
+        working-directory: infra/terraform/gcp
+        run: terraform init
+      
+      - name: Terraform Plan GCP
+        working-directory: infra/terraform/gcp
+        run: |
+          terraform plan -var-file=${{ github.event.inputs.environment || 'dev' }}.tfvars -out=tfplan
+      
+      - name: Terraform Apply GCP
+        working-directory: infra/terraform/gcp
+        run: terraform apply -auto-approve tfplan
+        if: github.event_name != 'pull_request'
+
+  deploy-applications:
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Set Kubeconfig
+        run: |
+          aws eks update-kubeconfig --name streaming-platform-${{ github.event.inputs.environment || 'dev' }} --region us-east-1
+      
+      - name: Apply Kubernetes Manifests
+        run: |
+          kubectl apply -f k8s/namespaces.yaml
+          kubectl apply -f k8s/resource-quotas.yaml
+          kubectl apply -f k8s/priority-classes.yaml
+          kubectl apply -f k8s/network-policies.yaml
+          kubectl apply -f k8s/hpa-config.yaml
+          kubectl apply -f k8s/pdbs.yaml
+      
+      - name: Apply Media Applications
+        run: kubectl apply -f apps/media/
+      
+      - name: Apply CDN Applications
+        run: kubectl apply -f apps/cdn/
+      
+      - name: Apply Data Layer
+        run: kubectl apply -f apps/data/
+      
+      - name: Apply Telecom Applications
+        run: kubectl apply -f apps/telecom/
+      
+      - name: Apply Client Applications
+        run: kubectl apply -f apps/clients/
+
+  smoke-tests:
+    runs-on: ubuntu-latest
+    needs: deploy-applications
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+      
+      - name: Run smoke tests
+        run: |
+          chmod +x tests/smoke-tests.sh
+          ./tests/smoke-tests.sh
+

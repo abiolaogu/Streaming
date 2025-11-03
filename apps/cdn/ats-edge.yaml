@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ats-edge
+  namespace: cdn
+  labels:
+    app: ats-edge
+    component: cdn
+spec:
+  selector:
+    matchLabels:
+      app: ats-edge
+  template:
+    metadata:
+      labels:
+        app: ats-edge
+        component: cdn
+    spec:
+      priorityClassName: cdn-critical
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: ats
+        image: apache/traffic-server:10
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8443
+          name: https
+        env:
+        - name: CONFIG_DIR
+          value: "/etc/trafficserver"
+        - name: CACHE_DIR
+          value: "/var/cache/trafficserver"
+        securityContext:
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: 2Gi
+          limits:
+            cpu: "4000m"
+            memory: 8Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/trafficserver
+        - name: cache
+          mountPath: /var/cache/trafficserver
+        - name: logs
+          mountPath: /var/log/trafficserver
+        livenessProbe:
+          httpGet:
+            path: /_hostdb
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_hostdb
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: ats-config
+      - name: cache
+        hostPath:
+          path: /var/lib/ats-cache
+          type: DirectoryOrCreate
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ats-config
+  namespace: cdn
+data:
+  records.config: |
+    CONFIG proxy.config.exec_thread.autoconfig INT 1
+    CONFIG proxy.config.exec_thread.autoconfig.scale FLOAT 2.0
+    CONFIG proxy.config.http.server_ports STRING 8080 8443:proto=http2:ssl
+    CONFIG proxy.config.net.connections_throttle INT 30000
+    CONFIG proxy.config.net.keepalive_post_out INT 1
+    CONFIG proxy.config.http.server_session_sharing.pool STRING thread
+    CONFIG proxy.config.http.server_session_sharing.match STRING ip,sni,cert
+    CONFIG proxy.config.http.per_server.connection.max STRING 1
+    CONFIG proxy.config.http.max_connections_active INT 100000
+    
+    CONFIG proxy.config.cache.ram_cache.size INT 4096M
+    CONFIG proxy.config.cache.ram_cache.algorithm INT 0
+    CONFIG proxy.config.cache.LM.bitmap_memory INT 256M
+    CONFIG proxy.config.cache.enable_prefetch INT 1
+    CONFIG proxy.config.http.cache.when_to_revalidate INT 0
+    
+    CONFIG proxy.config.http.enable_http_info INT 1
+    CONFIG proxy.config.http.cache.required_headers INT 2
+    CONFIG proxy.config.http.insert_squid_x_forwarded_for INT 1
+    CONFIG proxy.config.http.insert_client_ip INT 1
+    
+    CONFIG proxy.config.http.push_method_enabled INT 1
+    CONFIG proxy.config.log.logging_enabled INT 3
+    CONFIG proxy.config.log.max_space_mb_for_logs INT 5000
+    
+    CONFIG proxy.config.url_remap.pristine_host_hdr INT 1
+    CONFIG proxy.config.http.slow.log.threshold INT 2000
+  remap.config: |
+    map http://ats-edge.cdn.svc.cluster.local http://shaka-packager.media.svc.cluster.local
+    map https://ats-edge.cdn.svc.cluster.local http://shaka-packager.media.svc.cluster.local
+  storage.config: |
+    var/trafficserver 40960M
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ats-edge
+  namespace: cdn
+spec:
+  selector:
+    app: ats-edge
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  - name: https
+    port: 443
+    targetPort: 8443
+  type: LoadBalancer
+

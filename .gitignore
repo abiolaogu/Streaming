@@ -22,3 +22,65 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars.backup
+*.tfplan
+
+# Kubernetes
+*.kubeconfig
+*.kubeconfig.backup
+
+# Secrets
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+.env
+.env.local
+
+# Build artifacts
+build/
+target/
+*.o
+*.so
+*.a
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.test
+vendor/
+
+# Rust
+Cargo.lock
+
+# Helm
+charts/*/charts/
+charts/*/requirements.lock
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# OS
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp

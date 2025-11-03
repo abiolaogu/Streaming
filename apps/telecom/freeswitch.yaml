@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freeswitch
+  namespace: telecom
+  labels:
+    app: freeswitch
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: freeswitch
+  template:
+    metadata:
+      labels:
+        app: freeswitch
+    spec:
+      priorityClassName: telecom-critical
+      containers:
+      - name: freeswitch
+        image: any-sim/freeswitch:1.10.12
+        ports:
+        - containerPort: 5060
+          name: sip
+        - containerPort: 5080
+          name: ws
+        - containerPort: 7443
+          name: wss
+        - containerPort: 16384
+          name: rtp
+          protocol: UDP
+        - containerPort: 16385
+          name: rtcp
+          protocol: UDP
+        env:
+        - name: EXTERNAL_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: 2Gi
+          limits:
+            cpu: "4000m"
+            memory: 8Gi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/freeswitch
+        - name: logs
+          mountPath: /var/log/freeswitch
+        - name: recordings
+          mountPath: /var/lib/freeswitch/recordings
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - fs_cli -x status
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - fs_cli -x status
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: freeswitch-config
+      - name: logs
+        emptyDir: {}
+      - name: recordings
+        persistentVolumeClaim:
+          claimName: freeswitch-recordings
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freeswitch-recordings
+  namespace: telecom
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: freeswitch
+  namespace: telecom
+spec:
+  selector:
+    app: freeswitch
+  ports:
+  - name: sip
+    port: 5060
+    targetPort: 5060
+    protocol: UDP
+  - name: ws
+    port: 5080
+    targetPort: 5080
+  - name: wss
+    port: 7443
+    targetPort: 7443
+  - name: rtp
+    port: 16384
+    targetPort: 16384
+    protocol: UDP
+  - name: rtcp
+    port: 16385
+    targetPort: 16385
+    protocol: UDP
+  type: LoadBalancer
+

@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dragonfly-svc
+  namespace: data
+  labels:
+    app: dragonfly
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: dragonfly
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dragonfly
+  namespace: data
+  labels:
+    app: dragonfly
+spec:
+  serviceName: dragonfly-svc
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dragonfly
+  template:
+    metadata:
+      labels:
+        app: dragonfly
+    spec:
+      priorityClassName: data-critical
+      containers:
+      - name: dragonfly
+        image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.20.0
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+        - "/usr/local/bin/dragonfly"
+        args:
+        - "--cache_mode=true"
+        - "--maxmemory=8gb"
+        - "--save_schedule=*:*"
+        env:
+        - name: DRAGONFLY_MEMORY_LIMIT
+          value: "8gb"
+        - name: DRAGONFLY_SAVE_SCHEDULE
+          value: "*:*"
+        resources:
+          requests:
+            cpu: "2000m"
+            memory: 10Gi
+          limits:
+            cpu: "8000m"
+            memory: 16Gi
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - dragonfly-cli ping
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - dragonfly-cli ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Gi
+

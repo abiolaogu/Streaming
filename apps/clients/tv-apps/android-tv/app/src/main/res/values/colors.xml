@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors -->
+    <color name="brand_color">#6200EE</color>
+    <color name="brand_color_dark">#3700B3</color>
+    <color name="search_color">#FFFFFF</color>
+    
+    <!-- UI Colors -->
+    <color name="primary">#6200EE</color>
+    <color name="primary_dark">#3700B3</color>
+    <color name="accent">#03DAC5</color>
+    
+    <!-- Background -->
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    
+    <!-- Text -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B3B3B3</color>
+    
+    <!-- Leanback Theme -->
+    <color name="leanback_background">#212121</color>
+    <color name="leanback_browse_background">#000000</color>
+    <color name="leanback_details_background">#1a1a1a</color>
+</resources>
+

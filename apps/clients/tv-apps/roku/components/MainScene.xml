@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MainScene" extends="Scene">
+    <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+    
+    <children>
+        <!-- Login View -->
+        <LoginView 
+            id="loginView" 
+            visible="true"
+        />
+        
+        <!-- Home View -->
+        <HomeView 
+            id="homeView" 
+            visible="false"
+        />
+        
+        <!-- Detail View -->
+        <DetailView 
+            id="detailView" 
+            visible="false"
+        />
+        
+        <!-- Player View -->
+        <PlayerView 
+            id="playerView" 
+            visible="false"
+        />
+        
+        <!-- Search View -->
+        <SearchView 
+            id="searchView" 
+            visible="false"
+        />
+    </children>
+</component>
+
