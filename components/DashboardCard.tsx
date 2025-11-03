@@ -1,8 +1,7 @@
-
 import React from 'react';
 
 interface DashboardCardProps {
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }

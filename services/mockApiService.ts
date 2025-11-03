@@ -1,4 +1,4 @@
-import { GpuInstance, TranscodeJob, LiveStreamIngest, CreatorContent, RevenueAnalytics, ChurnRiskProfile, ContentRoiPrediction, DvbComponent, UserProfile, UserPreferences, UserDevice, CdnStat, CdnAlert, AnyContent } from '../types';
+import { GpuInstance, TranscodeJob, LiveStreamIngest, CreatorContent, RevenueAnalytics, ChurnRiskProfile, ContentRoiPrediction, DvbComponent, UserProfile, UserPreferences, UserDevice, CdnStat, CdnAlert, AnyContent, MediaContent, MediaContentWithProgress, CacheHitRatioDataPoint, LatencyByRegion, BandwidthByTier } from '../types';
 
 // This file simulates a real API client.
 // In a real application, these functions would make network requests (e.g., using fetch).
@@ -15,17 +15,31 @@ const mockLiveChannels: AnyContent[] = [
     { id: 'live-movies-1', name: 'StreamVerse Premiere', description: "Exclusive premieres and classic movies, playing non-stop.", logoUrl: 'https://picsum.photos/seed/svlogo/100/50', category: 'Movies', type: 'Live', currentProgram: { title: 'The Wedding Party', startTime: now - oneHour * 0.8, endTime: now + oneHour * 0.2 } },
 ];
 
-const mockVODContent: AnyContent[] = [
-     { id: 'movie-1', title: 'Omo Ghetto: The Saga', description: "A story of two identical twins living separate lives, one a ghetto-raised hustler and the other a wealthy sophisticate.", thumbnailUrl: 'https://picsum.photos/seed/omoghetto/400/225', type: 'Movie', category: 'Nollywood', monetizationModel: 'SVOD' },
-     { id: 'movie-2', title: 'King of Boys', description: "A businesswoman and philanthropist with a checkered past is drawn into a power struggle that threatens everything she holds dear.", thumbnailUrl: 'https://picsum.photos/seed/kingofboys/400/225', type: 'Movie', category: 'Nollywood', monetizationModel: 'SVOD' },
-     { id: 'series-1', title: 'Shanty Town', description: "A group of courtesans attempts to escape the grasp of a notorious kingpin, but political corruption and blood ties make freedom a near-impossible goal.", thumbnailUrl: 'https://picsum.photos/seed/shantytown/400/225', type: 'Series', category: 'Nollywood', monetizationModel: 'SVOD' },
-     { id: 'movie-3', title: 'A Tribe Called Judah', description: "A single mother's five sons from five different fathers unite to rob a small mall to save her life, but their plan takes an unexpected turn.", thumbnailUrl: 'https://picsum.photos/seed/judah/400/225', type: 'Movie', category: 'Nollywood', monetizationModel: 'TVOD', price: { rent: 3.99, buy: 9.99} },
-     { id: 'doc-1', title: 'Journey of an African Colony', description: "An in-depth look at the history of Nigeria, from its colonial past to its vibrant present.", thumbnailUrl: 'https://picsum.photos/seed/colony/400/225', type: 'Movie', category: 'Documentaries', monetizationModel: 'AVOD' },
-     { id: 'drama-1', title: 'Blood Sisters', description: "Bound by a dangerous secret, best friends Sarah and Kemi are forced to go on the run after a wealthy groom disappears during his engagement party.", thumbnailUrl: 'https://picsum.photos/seed/bloodsisters/400/225', type: 'Series', category: 'Drama', monetizationModel: 'SVOD' },
-     { id: 'series-4', title: 'Far From Home', description: "A financially struggling teen finds himself in the world of luxury after a prestigious scholarship sends him to an exclusive school for the one percent.", thumbnailUrl: 'https://picsum.photos/seed/farfromhome/400/225', type: 'Series', progress: 75, category: 'Drama', monetizationModel: 'SVOD' }
+// FIX: Changed the type to allow content with progress property.
+const mockVODContent: (MediaContent | MediaContentWithProgress)[] = [
+     { id: 'movie-1', title: 'Omo Ghetto: The Saga', description: "A story of two identical twins living separate lives, one a ghetto-raised hustler and the other a wealthy sophisticate.", thumbnailUrl: 'https://picsum.photos/seed/omoghetto/400/225', type: 'Movie', category: 'Nollywood', monetizationModel: 'SVOD', cast: ['Funke Akindele-Bello', 'Nancy Isime'], director: 'Funke Akindele', releaseYear: 2020 },
+     { id: 'movie-2', title: 'King of Boys', description: "A businesswoman and philanthropist with a checkered past is drawn into a power struggle that threatens everything she holds dear.", thumbnailUrl: 'https://picsum.photos/seed/kingofboys/400/225', type: 'Movie', category: 'Nollywood', monetizationModel: 'SVOD', cast: ['Sola Sobowale', 'Adesua Etomi-Wellington'], director: 'Kemi Adetiba', releaseYear: 2018 },
+     { id: 'series-1', title: 'Shanty Town', description: "A group of courtesans attempts to escape the grasp of a notorious kingpin, but political corruption and blood ties make freedom a near-impossible goal.", thumbnailUrl: 'https://picsum.photos/seed/shantytown/400/225', type: 'Series', category: 'Nollywood', monetizationModel: 'SVOD', cast: ['Chidi Mokeme', 'Ini Edo', 'Richard Mofe-Damijo'], director: 'Dimeji Ajibola', releaseYear: 2023 },
+     { id: 'movie-3', title: 'A Tribe Called Judah', description: "A single mother's five sons from five different fathers unite to rob a small mall to save her life, but their plan takes an unexpected turn.", thumbnailUrl: 'https://picsum.photos/seed/judah/400/225', type: 'Movie', category: 'Nollywood', monetizationModel: 'TVOD', price: { rent: 3.99, buy: 9.99}, cast: ['Funke Akindele', 'Jide Kene Achufusi'], director: 'Funke Akindele', releaseYear: 2023 },
+     { id: 'doc-1', title: 'Journey of an African Colony', description: "An in-depth look at the history of Nigeria, from its colonial past to its vibrant present.", thumbnailUrl: 'https://picsum.photos/seed/colony/400/225', type: 'Movie', category: 'Documentaries', monetizationModel: 'AVOD', cast: ['N/A'], director: 'Olasupo Shasore', releaseYear: 2019 },
+     { id: 'drama-1', title: 'Blood Sisters', description: "Bound by a dangerous secret, best friends Sarah and Kemi are forced to go on the run after a wealthy groom disappears during his engagement party.", thumbnailUrl: 'https://picsum.photos/seed/bloodsisters/400/225', type: 'Series', category: 'Drama', monetizationModel: 'SVOD', cast: ['Ini Dima-Okojie', 'Nancy Isime'], director: 'Biyi Bandele', releaseYear: 2022 },
+     { id: 'series-4', title: 'Far From Home', description: "A financially struggling teen finds himself in the world of luxury after a prestigious scholarship sends him to an exclusive school for the one percent.", thumbnailUrl: 'https://picsum.photos/seed/farfromhome/400/225', type: 'Series', progress: 75, category: 'Drama', monetizationModel: 'SVOD', cast: ['Mike Afolarin', 'Richard Mofe-Damijo'], director: 'Catherine Stewart', releaseYear: 2022 }
 ];
 
-const allContent = [...mockLiveChannels, ...mockVODContent];
+const allContent: AnyContent[] = [...mockLiveChannels, ...mockVODContent];
+
+const mockWatchHistory: AnyContent[] = [
+    mockVODContent[2], // Shanty Town
+    mockVODContent[0], // Omo Ghetto
+    mockVODContent[4], // Journey of an African Colony
+];
+
+const mockWatchlist: AnyContent[] = [
+    mockVODContent[1], // King of Boys
+    mockVODContent[3], // A Tribe Called Judah
+    mockVODContent[5], // Blood Sisters
+];
+
 
 const mockGpuInstances: GpuInstance[] = [
     { id: 'local-gpu-01', provider: 'Local', type: 'NVIDIA A6000', status: 'Processing', spot: false, costPerHour: 1.50 },
@@ -100,21 +114,49 @@ const mockUserDevices: UserDevice[] = [
     { id: 'dev-3', type: 'Smart TV', os: 'LG webOS 23', lastSeen: 'Yesterday' },
 ];
 
-const mockCdnStats: CdnStat[] = [
-    { label: 'Global Bandwidth', value: '4.82 Tbps', change: '+5.2%', changeType: 'positive' },
-    { label: 'Requests/sec', value: '1.8M', change: '+2.1%', changeType: 'positive' },
-    { label: 'Cache Hit Ratio', value: '96.3%', change: '-0.2%', changeType: 'negative' },
-    { label: 'P99 Latency', value: '48ms', change: '+4ms', changeType: 'negative' },
+const mockCdnStatsBase = {
+    bandwidth: 4.82,
+    requests: 1.8,
+    hitRatio: 96.3,
+    latency: 48,
+};
+
+const allPossibleAlerts: Omit<CdnAlert, 'id' | 'timestamp'>[] = [
+    { severity: 'Critical', message: 'BGP session lost with peer in `lon1`' },
+    { severity: 'Warning', message: 'Cache hit ratio dropped below 85% in `sao1`' },
+    { severity: 'Info', message: 'Tier 3 PoP `jnb3` scaled up successfully' },
+    { severity: 'Critical', message: 'Power outage detected at `fra2` data center.'},
+    { severity: 'Warning', message: 'High packet loss on backbone link between `ash1` and `lon1`.' },
+    { severity: 'Info', message: 'Software update `v3.2.1` rolled out to all Tier 2 PoPs.' },
+    { severity: 'Warning', message: 'Origin shield latency > 200ms for `mum2`.' },
+];
+let alertIndex = 0;
+
+
+const mockCacheHitRatioData: CacheHitRatioDataPoint[] = [
+    { time: '12:00', ratio: 95.8 },
+    { time: '13:00', ratio: 96.1 },
+    { time: '14:00', ratio: 96.5 },
+    { time: '15:00', ratio: 96.2 },
+    { time: '16:00', ratio: 96.3 },
+    { time: '17:00', ratio: 96.8 },
+    { time: '18:00', ratio: 97.1 },
 ];
 
-const mockCdnAlerts: CdnAlert[] = [
-    { id: 'alert-1', severity: 'Critical', message: 'BGP session lost with peer in `lon1`', timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString() },
-    { id: 'alert-2', severity: 'Warning', message: 'Cache hit ratio dropped below 85% in `sao1`', timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
-    { id: 'alert-3', severity: 'Info', message: 'Tier 3 PoP `jnb3` scaled up successfully', timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
+const mockLatencyByRegionData: LatencyByRegion[] = [
+    { region: 'Americas', latency: 55 },
+    { region: 'EMEA', latency: 42 },
+    { region: 'APAC', latency: 89 },
 ];
+
+const mockBandwidthByTierData: BandwidthByTier[] = [
+    { tier: 'Tier 1', bandwidth: 3.1 },
+    { tier: 'Tier 2', bandwidth: 1.72 },
+];
+
 
 // --- EXPORTED API FUNCTIONS ---
-export const fetchVODContent = (): Promise<AnyContent[]> => new Promise(resolve => setTimeout(() => resolve(mockVODContent), MOCK_API_LATENCY));
+export const fetchVODContent = (): Promise<AnyContent[]> => new Promise(resolve => setTimeout(() => resolve(mockVODContent as MediaContent[]), MOCK_API_LATENCY));
 export const fetchLiveChannels = (): Promise<AnyContent[]> => new Promise(resolve => setTimeout(() => resolve(mockLiveChannels), MOCK_API_LATENCY));
 export const fetchContinueWatching = (): Promise<AnyContent[]> => new Promise(resolve => setTimeout(() => resolve(allContent.filter(c => 'progress' in c)), MOCK_API_LATENCY));
 
@@ -131,5 +173,50 @@ export const fetchDvbComponents = (): Promise<DvbComponent[]> => new Promise(res
 export const fetchUserProfile = (): Promise<UserProfile> => new Promise(resolve => setTimeout(() => resolve(mockUserProfile), MOCK_API_LATENCY));
 export const fetchUserPreferences = (): Promise<UserPreferences> => new Promise(resolve => setTimeout(() => resolve(mockUserPreferences), MOCK_API_LATENCY));
 export const fetchUserDevices = (): Promise<UserDevice[]> => new Promise(resolve => setTimeout(() => resolve(mockUserDevices), MOCK_API_LATENCY));
-export const fetchCdnStats = (): Promise<CdnStat[]> => new Promise(resolve => setTimeout(() => resolve(mockCdnStats), MOCK_API_LATENCY));
-export const fetchCdnAlerts = (): Promise<CdnAlert[]> => new Promise(resolve => setTimeout(() => resolve(mockCdnAlerts), MOCK_API_LATENCY));
+
+export const fetchCdnStats = (): Promise<CdnStat[]> => {
+    return new Promise(resolve => {
+        // Simulate real-time fluctuations
+        const newBandwidth = mockCdnStatsBase.bandwidth + (Math.random() - 0.5) * 0.2;
+        const newRequests = mockCdnStatsBase.requests + (Math.random() - 0.5) * 0.1;
+        const newHitRatio = mockCdnStatsBase.hitRatio + (Math.random() - 0.5) * 0.5;
+        const newLatency = mockCdnStatsBase.latency + (Math.random() - 0.5) * 5;
+
+        const formatChange = (oldVal: number, newVal: number) => {
+            const change = ((newVal - oldVal) / oldVal) * 100;
+            return `${change > 0 ? '+' : ''}${change.toFixed(1)}%`;
+        };
+
+        setTimeout(() => resolve([
+            { label: 'Global Bandwidth', value: `${newBandwidth.toFixed(2)} Tbps`, change: formatChange(4.82, newBandwidth), changeType: newBandwidth > 4.82 ? 'positive' : 'negative' },
+            { label: 'Requests/sec', value: `${newRequests.toFixed(2)}M`, change: formatChange(1.8, newRequests), changeType: newRequests > 1.8 ? 'positive' : 'negative' },
+            { label: 'Cache Hit Ratio', value: `${newHitRatio.toFixed(1)}%`, change: formatChange(96.3, newHitRatio), changeType: newHitRatio > 96.3 ? 'positive' : 'negative' },
+            { label: 'P99 Latency', value: `${Math.round(newLatency)}ms`, change: formatChange(48, newLatency), changeType: newLatency < 48 ? 'positive' : 'negative' },
+        ]), MOCK_API_LATENCY);
+    });
+};
+
+export const fetchCdnAlerts = (): Promise<CdnAlert[]> => {
+    return new Promise(resolve => {
+        // Cycle through a larger list of alerts to simulate new ones appearing
+        const newAlerts = [
+            allPossibleAlerts[alertIndex % allPossibleAlerts.length],
+            allPossibleAlerts[(alertIndex + 1) % allPossibleAlerts.length],
+            allPossibleAlerts[(alertIndex + 2) % allPossibleAlerts.length],
+        ].map((alert, index) => ({
+            ...alert,
+            id: `alert-${alertIndex}-${index}`,
+            timestamp: new Date(Date.now() - (index * 5 + 2) * 60 * 1000).toISOString(),
+        }));
+        alertIndex++;
+        setTimeout(() => resolve(newAlerts.reverse()), MOCK_API_LATENCY);
+    });
+};
+
+
+export const fetchWatchHistory = (): Promise<AnyContent[]> => new Promise(resolve => setTimeout(() => resolve(mockWatchHistory), MOCK_API_LATENCY));
+export const fetchWatchlist = (): Promise<AnyContent[]> => new Promise(resolve => setTimeout(() => resolve(mockWatchlist), MOCK_API_LATENCY));
+
+export const fetchCacheHitRatioData = (): Promise<CacheHitRatioDataPoint[]> => new Promise(resolve => setTimeout(() => resolve(mockCacheHitRatioData), MOCK_API_LATENCY + 200));
+export const fetchLatencyByRegionData = (): Promise<LatencyByRegion[]> => new Promise(resolve => setTimeout(() => resolve(mockLatencyByRegionData), MOCK_API_LATENCY + 200));
+export const fetchBandwidthByTierData = (): Promise<BandwidthByTier[]> => new Promise(resolve => setTimeout(() => resolve(mockBandwidthByTierData), MOCK_API_LATENCY + 200));

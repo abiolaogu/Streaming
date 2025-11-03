@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { View, ViewState, Theme } from '../types';
 import { ArrowRightOnRectangleIcon, UserCircleIcon, ChevronDownIcon, ChevronLeftIcon } from '@heroicons/react/24/solid';
@@ -23,6 +24,7 @@ const viewTitles: Record<View, string> = {
   user_profile: 'User Profile',
 
   // Admin Views
+  roadmap: 'Project Implementation Roadmap',
   overview: 'Platform Overview',
   bi: 'Business Intelligence',
   ai_ops: 'AIOps Co-pilot',

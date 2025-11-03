@@ -4,7 +4,7 @@ import type React from 'react';
 export type AdminView = 
     'overview' | 'gpu_fabric' | 'cdn' | 'security' | 'media' 
     | 'data' | 'telecom' | 'satellite' | 'drm' | 'ai_ops' 
-    | 'neural_engine' | 'broadcast_ops' | 'bi' | 'user_profile';
+    | 'neural_engine' | 'broadcast_ops' | 'bi' | 'user_profile' | 'roadmap';
 
 export type CreatorView = 'creator_studio';
 
@@ -109,6 +109,9 @@ export interface MediaContent {
       rent: number;
       buy: number;
   };
+  cast?: string[];
+  director?: string;
+  releaseYear?: number;
 }
 
 export interface LiveChannel {
@@ -228,4 +231,33 @@ export interface CdnAlert {
     severity: 'Critical' | 'Warning' | 'Info';
     message: string;
     timestamp: string;
+}
+
+// --- CDN Analytics Types ---
+export interface CacheHitRatioDataPoint {
+    time: string; // e.g., "14:00"
+    ratio: number; // e.g., 96.3
+}
+
+export interface LatencyByRegion {
+    region: 'Americas' | 'EMEA' | 'APAC';
+    latency: number; // in ms
+}
+
+export interface BandwidthByTier {
+    tier: 'Tier 1' | 'Tier 2';
+    bandwidth: number; // in Tbps
+}
+
+
+// --- Project Roadmap Types ---
+export interface RoadmapIssue {
+    id: string;
+    title: string;
+    phase: string;
+    status: 'Done' | 'In Progress' | 'Not Started';
+    priority: string;
+    effort: string;
+    owner: string;
+    description: string;
 }

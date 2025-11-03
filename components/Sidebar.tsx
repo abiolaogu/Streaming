@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { NavItem, View } from '../types';
 import { 
     OverviewIcon, GpuIcon, CdnIcon, SecurityIcon, MediaIcon, 
     DataIcon, TelecomIcon, SatelliteIcon, AiOpsIcon, NeuralEngineIcon,
     HomeIcon, CreatorStudioIcon, SparklesIcon, DrmIcon,
-    BusinessIntelligenceIcon, BroadcastIcon
+    BusinessIntelligenceIcon, BroadcastIcon, RoadmapIcon
 } from './IconComponents';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
@@ -22,6 +23,7 @@ const creatorNavItems: NavItem[] = [
 ];
 
 const adminNavItems: NavItem[] = [
+  { id: 'roadmap', label: 'Project Roadmap', icon: RoadmapIcon },
   { id: 'overview', label: 'Overview', icon: OverviewIcon },
   { id: 'bi', label: 'Business Intelligence', icon: BusinessIntelligenceIcon },
   { id: 'ai_ops', label: 'AIOps Co-pilot', icon: AiOpsIcon },

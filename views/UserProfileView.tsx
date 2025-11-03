@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import DashboardCard from '../components/DashboardCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { fetchUserProfile, fetchUserPreferences, fetchUserDevices } from '../services/mockApiService';
-import { UserProfile, UserPreferences, UserDevice } from '../types';
-import { DevicePhoneMobileIcon, ComputerDesktopIcon, TvIcon } from '@heroicons/react/24/solid';
+import { fetchUserProfile, fetchUserPreferences, fetchUserDevices, fetchWatchHistory, fetchWatchlist } from '../services/mockApiService';
+import { UserProfile, UserPreferences, UserDevice, AnyContent, MediaContent } from '../types';
+import { DevicePhoneMobileIcon, ComputerDesktopIcon, TvIcon, TrashIcon } from '@heroicons/react/24/solid';
 
 const deviceIcons: Record<UserDevice['type'], React.ReactNode> = {
     'Mobile': <DevicePhoneMobileIcon className="h-6 w-6 text-brand-text-secondary" />,
@@ -11,27 +11,63 @@ const deviceIcons: Record<UserDevice['type'], React.ReactNode> = {
     'Smart TV': <TvIcon className="h-6 w-6 text-brand-text-secondary" />,
 };
 
+const ContentItemCard: React.FC<{ item: AnyContent, onRemove: (id: string) => void }> = ({ item, onRemove }) => {
+    const mediaItem = item as MediaContent;
+    return (
+        <div className="flex items-center space-x-4 p-2 bg-brand-bg rounded-lg hover:bg-brand-surface transition-colors">
+            <img src={mediaItem.thumbnailUrl} alt={mediaItem.title} className="w-24 h-14 object-cover rounded-md flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-brand-text-primary truncate">{mediaItem.title}</p>
+                <p className="text-xs text-brand-text-secondary">{mediaItem.category}</p>
+            </div>
+            <button 
+                onClick={() => onRemove(item.id)}
+                className="text-brand-text-secondary hover:text-brand-danger p-2 rounded-full"
+                aria-label={`Remove ${mediaItem.title}`}
+            >
+                <TrashIcon className="h-5 w-5" />
+            </button>
+        </div>
+    );
+};
+
+
 const UserProfileView: React.FC = () => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
     const [devices, setDevices] = useState<UserDevice[]>([]);
+    const [watchHistory, setWatchHistory] = useState<AnyContent[]>([]);
+    const [watchlist, setWatchlist] = useState<AnyContent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
-            const [profileData, preferencesData, devicesData] = await Promise.all([
+            const [profileData, preferencesData, devicesData, historyData, listData] = await Promise.all([
                 fetchUserProfile(),
                 fetchUserPreferences(),
                 fetchUserDevices(),
+                fetchWatchHistory(),
+                fetchWatchlist(),
             ]);
             setProfile(profileData);
             setPreferences(preferencesData);
             setDevices(devicesData);
+            setWatchHistory(historyData);
+            setWatchlist(listData);
             setIsLoading(false);
         };
         loadData();
     }, []);
+
+    const handleRemoveHistory = (id: string) => setWatchHistory(prev => prev.filter(item => item.id !== id));
+    const handleRemoveWatchlist = (id: string) => setWatchlist(prev => prev.filter(item => item.id !== id));
+    
+    const handleClearAllHistory = () => {
+        if (window.confirm('Are you sure you want to clear your entire watch history? This action cannot be undone.')) {
+            setWatchHistory([]);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -96,7 +132,7 @@ const UserProfileView: React.FC = () => {
                    </button>
                 </DashboardCard>
             </div>
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-6">
                 <DashboardCard title="Active Device Sessions">
                     <p className="text-xs text-brand-text-secondary mb-4">You can have a maximum of 5 active devices. Deregister a device to free up a slot.</p>
                     <ul className="space-y-3">
@@ -113,6 +149,36 @@ const UserProfileView: React.FC = () => {
                             </li>
                         ))}
                     </ul>
+                </DashboardCard>
+                 <DashboardCard title={
+                    <div className="flex justify-between items-center">
+                        <span>Watch History</span>
+                        {watchHistory.length > 0 && (
+                             <button 
+                                onClick={handleClearAllHistory}
+                                className="text-xs font-semibold text-brand-text-secondary hover:text-brand-danger transition-colors"
+                            >
+                                Clear History
+                            </button>
+                        )}
+                    </div>
+                 }>
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                        {watchHistory.length > 0 ? (
+                            watchHistory.map(item => <ContentItemCard key={`hist-${item.id}`} item={item} onRemove={handleRemoveHistory} />)
+                        ) : (
+                            <p className="text-sm text-brand-text-secondary text-center py-4">Your watch history is empty.</p>
+                        )}
+                    </div>
+                </DashboardCard>
+                <DashboardCard title="My Watchlist">
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                        {watchlist.length > 0 ? (
+                            watchlist.map(item => <ContentItemCard key={`list-${item.id}`} item={item} onRemove={handleRemoveWatchlist} />)
+                        ) : (
+                             <p className="text-sm text-brand-text-secondary text-center py-4">Your watchlist is empty.</p>
+                        )}
+                    </div>
                 </DashboardCard>
             </div>
         </div>

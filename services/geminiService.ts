@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 
 const getApiClient = () => {
@@ -10,6 +11,14 @@ const getApiClient = () => {
 
 const handleApiError = (error: unknown): string => {
   console.error("Error calling Gemini API:", error);
+
+  // Check for the specific API key error and dispatch an event for the UI to handle.
+  const errorObj = error as { error?: { message?: string, status?: string } };
+  if (errorObj?.error?.message?.includes("Requested entity was not found") || errorObj?.error?.status === 'NOT_FOUND') {
+    window.dispatchEvent(new CustomEvent('apiKeyError'));
+    return "Error: Your API Key is no longer valid. Please select a new key to continue.";
+  }
+  
   if (error instanceof Error) {
     if (error.message.includes('xhr error')) {
       return "Error: A network error occurred after multiple retries. Please check your connection and try again.";
@@ -19,7 +28,7 @@ const handleApiError = (error: unknown): string => {
   return "An unknown error occurred.";
 };
 
-// Helper function to add retry logic to API calls
+// Helper function to add retry logic with exponential backoff and jitter
 const makeApiCallWithRetry = async <T>(
   apiCall: () => Promise<T>,
   retries = 3,
@@ -33,8 +42,10 @@ const makeApiCallWithRetry = async <T>(
       lastError = error;
       // Only retry on specific, transient network errors
       if (error instanceof Error && error.message.includes('xhr error')) {
-        console.warn(`Attempt ${i + 1} failed with network error. Retrying in ${delay * Math.pow(2, i)}ms...`);
-        await new Promise(res => setTimeout(res, delay * Math.pow(2, i)));
+        const jitter = Math.random() * 100; // Add jitter to prevent thundering herd
+        const backoffDelay = delay * Math.pow(2, i) + jitter;
+        console.warn(`Attempt ${i + 1} failed with network error. Retrying in ${backoffDelay.toFixed(0)}ms...`);
+        await new Promise(res => setTimeout(res, backoffDelay));
       } else {
         // Don't retry on other errors (e.g., malformed request, auth issues)
         throw error;
@@ -111,7 +122,7 @@ export const getMediaPipelineStatus = async (): Promise<string> => {
     try {
         const response = await makeApiCallWithRetry(async () => {
             const ai = getApiClient();
-            return ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+            return ai.models.generateContent({ model: 'gem-2.5-flash', contents: prompt });
         });
         return response.text;
     } catch (error) {

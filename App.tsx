@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -20,12 +21,18 @@ import BroadcastOpsView from './views/BroadcastOpsView';
 import LoginView from './views/LoginView';
 import UserProfileView from './views/UserProfileView';
 import WatchView from './views/WatchView';
+import RoadmapView from './views/RoadmapView';
 import { View, ViewState, Theme } from './types';
+import ApiKeyPromptView from './views/ApiKeyPromptView';
+import LoadingSpinner from './components/LoadingSpinner';
 
 const App: React.FC = () => {
   const [currentViewState, setCurrentViewState] = useState<ViewState>({ name: 'streamverse_home' });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'dark');
+  
+  const [isKeySelected, setIsKeySelected] = useState(false);
+  const [hasCheckedKey, setHasCheckedKey] = useState(false);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -36,10 +43,34 @@ const App: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    const checkKey = async () => {
+        if ((window as any).aistudio && await (window as any).aistudio.hasSelectedApiKey()) {
+            setIsKeySelected(true);
+        }
+        setHasCheckedKey(true);
+    };
+    checkKey();
+
+    const handleApiKeyError = () => {
+        console.warn('API key error detected. Prompting for new key.');
+        setIsKeySelected(false);
+    };
+
+    window.addEventListener('apiKeyError', handleApiKeyError);
+
+    return () => {
+        window.removeEventListener('apiKeyError', handleApiKeyError);
+    };
+  }, []);
+
+  const handleKeySelected = () => {
+    setIsKeySelected(true);
+  };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
-    setCurrentViewState({ name: 'overview' }); // Default to overview after login
+    setCurrentViewState({ name: 'roadmap' }); // Default to roadmap after login
   };
 
   const handleLogout = () => {
@@ -72,6 +103,8 @@ const App: React.FC = () => {
         return <UserProfileView />;
 
       // Admin Views
+      case 'roadmap':
+        return <RoadmapView />;
       case 'overview':
         return <OverviewView />;
       case 'gpu_fabric':
@@ -102,6 +135,18 @@ const App: React.FC = () => {
         return <StreamVerseHomeView onWatch={handleWatchContent} />;
     }
   }, [currentViewState]);
+
+  if (!hasCheckedKey) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-brand-bg">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (!isKeySelected) {
+    return <ApiKeyPromptView onKeySelected={handleKeySelected} />;
+  }
 
   if (!isAuthenticated) {
     return <LoginView onLogin={handleLogin} />;
