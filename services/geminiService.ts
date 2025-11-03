@@ -122,7 +122,7 @@ export const getMediaPipelineStatus = async (): Promise<string> => {
     try {
         const response = await makeApiCallWithRetry(async () => {
             const ai = getApiClient();
-            return ai.models.generateContent({ model: 'gem-2.5-flash', contents: prompt });
+            return ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
         });
         return response.text;
     } catch (error) {
@@ -131,7 +131,7 @@ export const getMediaPipelineStatus = async (): Promise<string> => {
 }
 
 export const getDataPlatformHealth = async (): Promise<string> => {
-    const prompt = `Act as a Data Platform Engineer for StreamVerse. Provide a concise, markdown-formatted health summary of our data plane. Cover our primary distributed SQL DB (YugabyteDB), Kafka event bus, ScyllaDB time-series, and DragonflyDB cache. Highlight any replication lag or query performance issues.`;
+    const prompt = `Act as a Data Platform Engineer for StreamVerse. Provide a concise, markdown-formatted health summary of our data plane. Cover our primary SQL DB (PostgreSQL), Kafka event bus, ScyllaDB time-series, and DragonflyDB cache. Highlight any replication lag or query performance issues.`;
     try {
         const response = await makeApiCallWithRetry(async () => {
             const ai = getApiClient();

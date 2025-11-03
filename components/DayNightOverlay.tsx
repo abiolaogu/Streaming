@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 const DayNightOverlay: React.FC = () => {
@@ -22,11 +21,12 @@ const DayNightOverlay: React.FC = () => {
             const dayFraction = utcHours / 24;
             const centerPercent = dayFraction * 100;
 
-            const nightColor = 'rgba(13, 17, 23, 0.4)'; // A semi-transparent dark color matching brand-bg
-            const dayColor = 'rgba(255, 255, 255, 0.0)'; // Transparent for day
+            // Enhanced colors for a more thematic and subtle effect
+            const nightColor = 'rgba(49, 46, 129, 0.3)'; // Dark indigo tint
+            const dayColor = 'rgba(251, 191, 36, 0.1)';   // Faint warm sunlight tint
 
             const bandWidthPercent = 50; // The width of the "day" band
-            const transitionWidthPercent = 7; // The width of the sunrise/sunset transition
+            const transitionWidthPercent = 10; // A wider, softer transition for sunrise/sunset
 
             let startDay = centerPercent - (bandWidthPercent / 2);
             let endDay = centerPercent + (bandWidthPercent / 2);
@@ -69,7 +69,8 @@ const DayNightOverlay: React.FC = () => {
         return () => clearInterval(intervalId);
     }, []);
 
-    return <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ background: gradient }} />;
+    // z-10 ensures it's above the map but below the PoP markers
+    return <div className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ background: gradient }} />;
 };
 
 export default DayNightOverlay;

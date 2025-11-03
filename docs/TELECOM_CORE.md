@@ -1,1 +1,0 @@
-TELECOM_CORE.md -
