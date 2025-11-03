@@ -1,0 +1,7 @@
+{
+  "name": "StreamVerse Platform",
+  "description": "The world's most advanced AI-powered hybrid broadcast-streaming ecosystem, integrating DVB, a creator economy, and next-generation content delivery.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StreamVerse</title>
+    <style>
+      :root {
+        --brand-bg: #F9FAFB;
+        --brand-surface: #FFFFFF;
+        --brand-border: #E5E7EB;
+        --brand-text-primary: #111827;
+        --brand-text-secondary: #6B7281;
+        --brand-accent: #3B82F6;
+        --brand-accent-hover: #2563EB;
+        --brand-success: #16A34A;
+        --brand-danger: #DC2626;
+        --brand-warning: #D97706;
+      }
+      .dark {
+        --brand-bg: #0D1117;
+        --brand-surface: #161B22;
+        --brand-border: #30363D;
+        --brand-text-primary: #C9D1D9;
+        --brand-text-secondary: #8B949E;
+        --brand-accent: #58A6FF;
+        --brand-accent-hover: #79C0FF;
+        --brand-success: #238636;
+        --brand-danger: #DA3633;
+        --brand-warning: #DBAB0A;
+      }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'brand-bg': 'var(--brand-bg)',
+              'brand-surface': 'var(--brand-surface)',
+              'brand-border': 'var(--brand-border)',
+              'brand-text-primary': 'var(--brand-text-primary)',
+              'brand-text-secondary': 'var(--brand-text-secondary)',
+              'brand-accent': 'var(--brand-accent)',
+              'brand-accent-hover': 'var(--brand-accent-hover)',
+              'brand-success': 'var(--brand-success)',
+              'brand-danger': 'var(--brand-danger)',
+              'brand-warning': 'var(--brand-warning)',
+            },
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "@heroicons/react/": "https://aistudiocdn.com/@heroicons/react@^2.2.0/"
+  }
+}
+</script>
+</head>
+  <body class="bg-brand-bg text-brand-text-primary transition-colors duration-300">
+    <div id="root"></div>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
