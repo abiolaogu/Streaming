@@ -1,0 +1,29 @@
+{
+  "id": "com.streamverse.webos",
+  "version": "1.0.0",
+  "vendor": "StreamVerse Inc.",
+  "type": "web",
+  "main": "index.html",
+  "title": "StreamVerse",
+  "icon": "assets/images/icon.png",
+  "largeIcon": "assets/images/large_icon.png",
+  "splashBackground": "assets/images/splash.png",
+  "bgImage": "assets/images/bg.png",
+  "iconColor": "#E50914",
+  "resolution": "1920x1080",
+  "transparent": false,
+  "checkUpdateOnLaunch": true,
+  "disallowScrollingInMainWindow": true,
+  "requiredMemory": 150,
+  "v2": {
+    "web": {
+      "accessPermissions": [
+        "platform.webos",
+        "audio",
+        "media",
+        "internet",
+        "storage"
+      ]
+    }
+  }
+}

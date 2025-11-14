@@ -1,0 +1,38 @@
+# Channel Details
+title=StreamVerse
+major_version=1
+minor_version=0
+build_version=0
+
+# Channel Packaging
+mm_icon_focus_hd=pkg:/images/channel-icon_HD.png
+mm_icon_focus_fhd=pkg:/images/channel-icon_FHD.png
+splash_screen_hd=pkg:/images/splash-screen_HD.jpg
+splash_screen_fhd=pkg:/images/splash-screen_FHD.jpg
+splash_color=#000000
+splash_min_time=1000
+
+# Resolution
+ui_resolutions=fhd
+supports_input_launch=1
+
+# Content Rating
+content_rating=12+
+
+# Screensaver Settings
+screensaver_title=StreamVerse Screensaver
+screensaver_private=0
+
+# Features
+supports_video_playback=1
+supports_audio_playback=1
+bs_const=DEBUG=false
+
+# DRM
+drm_version=1.0
+
+# Parental Controls
+parental_ok_ratings=G,PG,PG-13,R,NC-17,NR
+
+# Deep Linking
+deepLinkingParams=contentID,mediaType
