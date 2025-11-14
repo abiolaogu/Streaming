@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="MainScene" extends="Scene">
+    <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+
+    <children>
+        <!-- Background -->
+        <Rectangle id="background"
+            width="1920"
+            height="1080"
+            color="0x000000FF" />
+
+        <!-- Loading Spinner -->
+        <BusySpinner id="loadingSpinner"
+            translation="[860, 490]"
+            visible="false" />
+
+        <!-- Navigation Menu -->
+        <LayoutGroup id="navigationMenu"
+            layoutDirection="horiz"
+            translation="[60, 60]"
+            itemSpacings="[30]"
+            visible="true">
+            <Label id="homeLabel" text="Home" font="font:MediumBoldSystemFont" />
+            <Label id="searchLabel" text="Search" font="font:MediumBoldSystemFont" />
+            <Label id="myListLabel" text="My List" font="font:MediumBoldSystemFont" />
+            <Label id="settingsLabel" text="Settings" font="font:MediumBoldSystemFont" />
+        </LayoutGroup>
+
+        <!-- Featured Content -->
+        <Poster id="featuredPoster"
+            translation="[60, 150]"
+            width="1800"
+            height="600"
+            loadDisplayMode="scaleToFill" />
+
+        <!-- Content Rows -->
+        <RowList id="contentRowList"
+            translation="[60, 800]"
+            itemSpacing="[30, 0]"
+            rowItemSize="[280, 420]"
+            rowItemSpacing="[20, 0]"
+            numRows="3"
+            visible="true" />
+
+        <!-- Video Player -->
+        <Video id="videoPlayer"
+            width="1920"
+            height="1080"
+            translation="[0, 0]"
+            visible="false" />
+
+        <!-- Login Screen -->
+        <Group id="loginScreen" visible="false">
+            <Rectangle
+                width="1920"
+                height="1080"
+                color="0x000000FF" />
+            <LayoutGroup
+                translation="[660, 300]"
+                layoutDirection="vert"
+                itemSpacings="[30]">
+                <Label text="StreamVerse" font="font:LargeBoldSystemFont" />
+                <TextEditBox id="emailInput" width="600" hint="Email" />
+                <TextEditBox id="passwordInput" width="600" hint="Password" />
+                <Button id="loginButton" text="Sign In" />
+                <Button id="signupButton" text="Sign Up" />
+            </LayoutGroup>
+        </Group>
+
+        <!-- Details Screen -->
+        <Group id="detailsScreen" visible="false">
+            <Rectangle
+                width="1920"
+                height="1080"
+                color="0x00000099" />
+            <Poster id="detailsPoster"
+                translation="[100, 100]"
+                width="600"
+                height="900" />
+            <LayoutGroup
+                translation="[750, 100]"
+                layoutDirection="vert"
+                itemSpacings="[20]">
+                <Label id="detailsTitle" font="font:LargeBoldSystemFont" />
+                <Label id="detailsDescription" width="1000" wrap="true" />
+                <LayoutGroup layoutDirection="horiz" itemSpacings="[20]">
+                    <Button id="playButton" text="▶ Play" />
+                    <Button id="addToListButton" text="+ My List" />
+                    <Button id="shareButton" text="Share" />
+                </LayoutGroup>
+                <Label id="detailsMetadata" />
+            </LayoutGroup>
+        </Group>
+    </children>
+
+    <interface>
+        <field id="backPressed" type="bool" alwaysNotify="true" />
+    </interface>
+</component>
