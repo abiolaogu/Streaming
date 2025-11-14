@@ -1,0 +1,41 @@
+# Base Dockerfile template for all Go microservices
+# Copy this for: content-service, user-service, streaming-service, payment-service,
+# search-service, analytics-service, notification-service, admin-service,
+# websocket-service, scheduler-service, ad-service, transcoding-service
+
+FROM golang:1.21-alpine AS builder
+
+RUN apk add --no-cache git gcc musl-dev
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG SERVICE_NAME
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o ${SERVICE_NAME} ./cmd/main.go
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+ARG SERVICE_NAME
+COPY --from=builder /build/${SERVICE_NAME} ./service
+
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+ARG PORT=8080
+EXPOSE ${PORT}
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
+
+CMD ["./service"]

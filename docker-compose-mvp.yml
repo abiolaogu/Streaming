@@ -1,0 +1,111 @@
+# StreamVerse MVP - Minimal Viable Product for Testing
+# Quick setup with essential services only
+# Usage: docker-compose -f docker-compose-mvp.yml up
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: streamverse-postgres-mvp
+    environment:
+      POSTGRES_DB: streamverse
+      POSTGRES_USER: streamverse
+      POSTGRES_PASSWORD: streamverse_dev_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streamverse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: streamverse-redis-mvp
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: streamverse-auth-mvp
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=streamverse
+      - DB_USER=streamverse
+      - DB_PASSWORD=streamverse_dev_pass
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=mvp_test_secret_change_in_production
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Training Bot Service
+  training-bot:
+    build:
+      context: ./services/training-bot-service
+      dockerfile: Dockerfile
+    container_name: streamverse-training-bot-mvp
+    environment:
+      - PORT=8096
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=streamverse
+      - DB_USER=streamverse
+      - DB_PASSWORD=streamverse_dev_pass
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8096:8096"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamverse-web-mvp
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8081
+    depends_on:
+      - auth-service
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: streamverse-mvp
