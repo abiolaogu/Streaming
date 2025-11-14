@@ -1,0 +1,112 @@
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><rect fill="%23141414" width="1200" height="800"/></svg>');
+  background-size: cover;
+  background-position: center;
+}
+
+.login-header {
+  padding: 20px 50px;
+}
+
+.logo {
+  color: var(--netflix-red);
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+.login-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 200px);
+  padding: 20px;
+}
+
+.login-form-container {
+  background: rgba(0, 0, 0, 0.75);
+  padding: 60px 68px 40px;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 450px;
+}
+
+.login-form-container h2 {
+  color: #fff;
+  font-size: 2rem;
+  margin-bottom: 28px;
+}
+
+.login-form-container input {
+  width: 100%;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  background: #333;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 16px;
+}
+
+.login-form-container input:focus {
+  outline: 2px solid #fff;
+  background: #454545;
+}
+
+.error-message {
+  color: #e87c03;
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 10px;
+  background: rgba(232, 124, 3, 0.1);
+  border-radius: 4px;
+}
+
+.submit-button {
+  width: 100%;
+  padding: 16px;
+  background: var(--netflix-red);
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  margin-top: 24px;
+  transition: background 0.2s;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: #f40612;
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-switch {
+  margin-top: 16px;
+  color: #737373;
+  font-size: 14px;
+}
+
+.switch-button {
+  color: #fff;
+  background: none;
+  padding: 0;
+  margin-left: 5px;
+  font-size: 14px;
+  transition: text-decoration 0.2s;
+}
+
+.switch-button:hover {
+  text-decoration: underline;
+}
+
+.login-footer {
+  padding: 20px;
+  text-align: center;
+  color: #737373;
+  font-size: 14px;
+}

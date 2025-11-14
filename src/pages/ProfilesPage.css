@@ -1,0 +1,156 @@
+.profiles-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--netflix-black);
+}
+
+.profiles-container {
+  text-align: center;
+  padding: 40px;
+}
+
+.profiles-container h1 {
+  font-size: 3.5rem;
+  margin-bottom: 60px;
+}
+
+.profiles-grid {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+
+.profile-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.profile-card:hover {
+  transform: scale(1.1);
+}
+
+.profile-avatar {
+  width: 150px;
+  height: 150px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--netflix-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.add-profile .profile-avatar {
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.add-icon {
+  font-size: 4rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.profile-card h3 {
+  color: var(--netflix-gray);
+  font-size: 1.2rem;
+  font-weight: normal;
+  transition: color 0.2s;
+}
+
+.profile-card:hover h3 {
+  color: #fff;
+}
+
+.add-profile-form {
+  max-width: 500px;
+  margin: 40px auto 0;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  text-align: left;
+}
+
+.add-profile-form h2 {
+  font-size: 2rem;
+  margin-bottom: 30px;
+}
+
+.add-profile-form input[type="text"] {
+  width: 100%;
+  padding: 16px;
+  background: #333;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.add-profile-form input[type="text"]:focus {
+  outline: 2px solid #fff;
+  background: #454545;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 30px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  font-size: 16px;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 16px;
+}
+
+.submit-button,
+.cancel-button {
+  flex: 1;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.submit-button {
+  background: var(--netflix-red);
+  color: #fff;
+}
+
+.submit-button:hover {
+  background: #f40612;
+}
+
+.cancel-button {
+  background: transparent;
+  color: var(--netflix-gray);
+  border: 1px solid var(--netflix-gray);
+}
+
+.cancel-button:hover {
+  color: #fff;
+  border-color: #fff;
+}
