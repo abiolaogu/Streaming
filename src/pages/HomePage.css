@@ -1,0 +1,20 @@
+.home-page {
+  min-height: 100vh;
+  background: var(--netflix-black);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.content-rows {
+  position: relative;
+  z-index: 2;
+  margin-top: -150px;
+  padding-bottom: 50px;
+}

@@ -1,0 +1,115 @@
+.content-row {
+  padding: 0 60px;
+  margin-bottom: 40px;
+}
+
+.row-title {
+  font-size: 1.4rem;
+  margin-bottom: 16px;
+  font-weight: bold;
+}
+
+.row-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.row-content {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--netflix-gray) transparent;
+  padding-bottom: 10px;
+}
+
+.row-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.row-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.row-content::-webkit-scrollbar-thumb {
+  background: var(--netflix-gray);
+  border-radius: 4px;
+}
+
+.row-content::-webkit-scrollbar-thumb:hover {
+  background: var(--netflix-light-gray);
+}
+
+.content-item {
+  position: relative;
+  flex-shrink: 0;
+  width: 300px;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: transform 0.3s ease-in-out;
+}
+
+.content-item:hover {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.content-item img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  display: block;
+}
+
+.item-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.content-item:hover .item-overlay {
+  opacity: 1;
+}
+
+.item-overlay h3 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.item-info {
+  display: flex;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--netflix-light-gray);
+}
+
+.rating {
+  color: #ffd700;
+}
+
+@media (max-width: 768px) {
+  .content-row {
+    padding: 0 30px;
+    margin-bottom: 30px;
+  }
+
+  .row-title {
+    font-size: 1.2rem;
+  }
+
+  .content-item {
+    width: 200px;
+  }
+
+  .content-item:hover {
+    transform: scale(1.05);
+  }
+}
