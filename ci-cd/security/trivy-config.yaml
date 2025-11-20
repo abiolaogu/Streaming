@@ -1,0 +1,84 @@
+# Trivy Security Scanner Configuration
+# Comprehensive vulnerability scanning for containers and dependencies
+
+# Scan severity threshold
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+# Scan targets
+scan:
+  security-checks:
+    - vuln        # Vulnerabilities
+    - config      # Misconfigurations
+    - secret      # Secrets detection
+
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+
+# Vulnerability database
+db:
+  repository: ghcr.io/aquasecurity/trivy-db
+  skip-update: false
+
+# Ignore unfixed vulnerabilities
+ignore-unfixed: false
+
+# Exit code policy
+exit-code: 1  # Fail build on vulnerabilities
+
+# Output format
+format: table
+template: "@/contrib/html.tpl"
+
+# Cache configuration
+cache:
+  dir: /tmp/trivy-cache
+  ttl: 24h
+
+# Timeouts
+timeout: 10m
+
+# Policy
+policy:
+  policy-bundle-repository: ghcr.io/streamverse/trivy-policies
+  policy-bundle-path: policies/
+
+# Skip specific CVEs (with justification)
+skip-cves:
+  # - CVE-2023-12345  # False positive - not applicable to our use case
+
+# Skip specific paths
+skip-dirs:
+  - /usr/lib/node_modules
+  - /var/cache
+
+# Custom checks
+custom-checks:
+  - path: ./security-policies/custom-checks.yaml
+    enabled: true
+
+# Report configuration
+report:
+  format: json
+  output: /reports/trivy-report.json
+
+# Integration with CI/CD
+ci:
+  github-actions: true
+  gitlab-ci: false
+  jenkins: true
+
+# Notification
+notification:
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL}
+    channel: "#security-alerts"
+  email:
+    enabled: true
+    recipients:
+      - security@streamverse.io
+      - devops@streamverse.io

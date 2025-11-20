@@ -1,0 +1,526 @@
+// StreamVerse Streaming SaaS - Jenkins CI/CD Pipeline
+// Jenkins → AWX/Ansible → Tekton → Rancher/Kubernetes
+// DevOps Engineers interact primarily with Jenkins
+
+pipeline {
+    agent any
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timestamps()
+        timeout(time: 2, unit: 'HOURS')
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'staging', 'production'],
+            description: 'Target deployment environment'
+        )
+        choice(
+            name: 'DEPLOYMENT_TYPE',
+            choices: ['full', 'services-only', 'config-only', 'rollback'],
+            description: 'Type of deployment'
+        )
+        booleanParam(
+            name: 'RUN_TESTS',
+            defaultValue: true,
+            description: 'Run end-to-end tests'
+        )
+        booleanParam(
+            name: 'VULNERABILITY_SCAN',
+            defaultValue: true,
+            description: 'Run vulnerability scanning'
+        )
+        booleanParam(
+            name: 'DEPLOY_TO_K8S',
+            defaultValue: true,
+            description: 'Deploy to Kubernetes via Tekton'
+        )
+        string(
+            name: 'VERSION_TAG',
+            defaultValue: '',
+            description: 'Version tag (leave empty for auto-generation)'
+        )
+    }
+
+    environment {
+        // Version management
+        VERSION = "${params.VERSION_TAG != '' ? params.VERSION_TAG : generateVersion()}"
+        BUILD_DATE = sh(returnStdout: true, script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"').trim()
+
+        // Docker registries
+        DOCKER_REGISTRY = 'registry.streamverse.io'
+        DOCKER_CREDENTIALS_ID = 'docker-registry-creds'
+
+        // AWX/Ansible
+        AWX_URL = 'https://awx.streamverse.io'
+        AWX_CREDENTIALS = credentials('awx-api-token')
+
+        // Tekton
+        TEKTON_NAMESPACE = 'tekton-pipelines'
+        TEKTON_DASHBOARD = 'https://tekton.streamverse.io'
+
+        // Rancher/Kubernetes
+        RANCHER_URL = 'https://rancher.streamverse.io'
+        RANCHER_CREDENTIALS = credentials('rancher-api-token')
+        K8S_NAMESPACE = "streamverse-${params.ENVIRONMENT}"
+
+        // Security scanning
+        TRIVY_VERSION = '0.48.0'
+        SNYK_TOKEN = credentials('snyk-api-token')
+
+        // Notification
+        SLACK_CHANNEL = '#streamverse-deployments'
+        SLACK_CREDENTIALS = credentials('slack-webhook')
+    }
+
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    echo "🚀 Starting StreamVerse SaaS Deployment"
+                    echo "Environment: ${params.ENVIRONMENT}"
+                    echo "Version: ${VERSION}"
+                    echo "Build Date: ${BUILD_DATE}"
+
+                    // Clean workspace
+                    cleanWs()
+
+                    // Checkout code
+                    checkout scm
+
+                    // Send notification
+                    notifySlack('STARTED', "Deployment started for ${params.ENVIRONMENT}")
+                }
+            }
+        }
+
+        stage('Build Services') {
+            parallel {
+                stage('Build Rust Services') {
+                    steps {
+                        script {
+                            echo "🦀 Building Rust microservices"
+
+                            def rustServices = [
+                                'ingestion-service',
+                                'transcoding-service',
+                                'delivery-service'
+                            ]
+
+                            rustServices.each { service ->
+                                buildDockerImage(service, 'rust')
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Go Services') {
+                    steps {
+                        script {
+                            echo "🔷 Building Go microservices"
+
+                            def goServices = [
+                                'drm-service',
+                                'analytics-service',
+                                'api-gateway'
+                            ]
+
+                            goServices.each { service ->
+                                buildDockerImage(service, 'go')
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Python Services') {
+                    steps {
+                        script {
+                            echo "🐍 Building Python AI services"
+
+                            buildDockerImage('ai-enhancement-service', 'python')
+                        }
+                    }
+                }
+
+                stage('Build Platform SDK') {
+                    steps {
+                        script {
+                            echo "📦 Building Platform Integration SDK"
+
+                            dir('streaming-saas/platform-integrations/unified-sdk') {
+                                sh 'npm install'
+                                sh 'npm run build'
+                                sh 'npm test'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Vulnerability Scanning') {
+            when {
+                expression { params.VULNERABILITY_SCAN == true }
+            }
+            parallel {
+                stage('Trivy Scan') {
+                    steps {
+                        script {
+                            echo "🔍 Running Trivy vulnerability scans"
+
+                            def services = getAllServices()
+
+                            services.each { service ->
+                                sh """
+                                    trivy image \\
+                                        --severity HIGH,CRITICAL \\
+                                        --exit-code 1 \\
+                                        --format json \\
+                                        --output ${service}-trivy-report.json \\
+                                        ${DOCKER_REGISTRY}/streamverse/${service}:${VERSION}
+                                """
+                            }
+
+                            // Archive reports
+                            archiveArtifacts artifacts: '*-trivy-report.json', allowEmptyArchive: true
+                        }
+                    }
+                }
+
+                stage('Snyk Scan') {
+                    steps {
+                        script {
+                            echo "🛡️ Running Snyk security scan"
+
+                            sh """
+                                snyk test --all-projects \\
+                                    --severity-threshold=high \\
+                                    --json-file-output=snyk-report.json
+                            """
+
+                            archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
+                        }
+                    }
+                }
+
+                stage('OWASP Dependency Check') {
+                    steps {
+                        script {
+                            echo "🔒 Running OWASP Dependency Check"
+
+                            sh """
+                                dependency-check.sh \\
+                                    --project "StreamVerse SaaS" \\
+                                    --scan . \\
+                                    --format JSON \\
+                                    --out owasp-report.json
+                            """
+
+                            archiveArtifacts artifacts: 'owasp-report.json', allowEmptyArchive: true
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('End-to-End Tests') {
+            when {
+                expression { params.RUN_TESTS == true }
+            }
+            steps {
+                script {
+                    echo "🧪 Running end-to-end tests"
+
+                    // Spin up test environment
+                    sh "docker-compose -f streaming-saas/docker-compose.streaming-saas.yml up -d"
+
+                    // Wait for services to be healthy
+                    sh "sleep 60"
+
+                    // Run tests
+                    dir('tests/e2e') {
+                        sh """
+                            npm install
+                            npm run test:e2e -- \\
+                                --env ${params.ENVIRONMENT} \\
+                                --report-dir=../../test-reports
+                        """
+                    }
+
+                    // Archive test results
+                    junit 'test-reports/**/*.xml'
+                    archiveArtifacts artifacts: 'test-reports/**/*', allowEmptyArchive: true
+
+                    // Tear down test environment
+                    sh "docker-compose -f streaming-saas/docker-compose.streaming-saas.yml down -v"
+                }
+            }
+        }
+
+        stage('Push Images') {
+            steps {
+                script {
+                    echo "📤 Pushing Docker images to registry"
+
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS_ID) {
+                        def services = getAllServices()
+
+                        services.each { service ->
+                            def image = docker.image("${DOCKER_REGISTRY}/streamverse/${service}:${VERSION}")
+                            image.push()
+                            image.push('latest')
+                        }
+                    }
+
+                    echo "✅ All images pushed successfully"
+                }
+            }
+        }
+
+        stage('Configure via AWX/Ansible') {
+            steps {
+                script {
+                    echo "⚙️ Triggering AWX/Ansible configuration"
+
+                    def awxJobTemplate = params.ENVIRONMENT == 'production' ?
+                        'streamverse-production-config' :
+                        'streamverse-staging-config'
+
+                    // Trigger AWX job template
+                    def awxResponse = sh(
+                        returnStdout: true,
+                        script: """
+                            curl -X POST \\
+                                -H "Authorization: Bearer ${AWX_CREDENTIALS}" \\
+                                -H "Content-Type: application/json" \\
+                                -d '{"extra_vars": {"version": "${VERSION}", "environment": "${params.ENVIRONMENT}"}}' \\
+                                ${AWX_URL}/api/v2/job_templates/${awxJobTemplate}/launch/
+                        """
+                    ).trim()
+
+                    def awxJobId = readJSON(text: awxResponse).id
+
+                    echo "AWX Job ID: ${awxJobId}"
+                    echo "AWX Dashboard: ${AWX_URL}/#/jobs/${awxJobId}"
+
+                    // Wait for AWX job to complete
+                    waitForAWXJob(awxJobId)
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes via Tekton') {
+            when {
+                expression { params.DEPLOY_TO_K8S == true }
+            }
+            steps {
+                script {
+                    echo "☸️ Deploying to Kubernetes via Tekton"
+
+                    // Create Tekton PipelineRun
+                    def pipelineRunName = "streamverse-${params.ENVIRONMENT}-${env.BUILD_NUMBER}"
+
+                    sh """
+                        kubectl create -f - <<EOF
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: ${pipelineRunName}
+  namespace: ${TEKTON_NAMESPACE}
+spec:
+  pipelineRef:
+    name: streamverse-deployment
+  params:
+    - name: environment
+      value: ${params.ENVIRONMENT}
+    - name: version
+      value: ${VERSION}
+    - name: namespace
+      value: ${K8S_NAMESPACE}
+    - name: replicas
+      value: '3'
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+EOF
+                    """
+
+                    echo "Tekton Pipeline Started: ${pipelineRunName}"
+                    echo "Tekton Dashboard: ${TEKTON_DASHBOARD}/#/namespaces/${TEKTON_NAMESPACE}/pipelineruns/${pipelineRunName}"
+
+                    // Wait for Tekton pipeline to complete
+                    timeout(time: 30, unit: 'MINUTES') {
+                        waitUntil {
+                            def status = sh(
+                                returnStdout: true,
+                                script: "kubectl get pipelinerun ${pipelineRunName} -n ${TEKTON_NAMESPACE} -o jsonpath='{.status.conditions[0].status}'"
+                            ).trim()
+
+                            return status == 'True'
+                        }
+                    }
+
+                    echo "✅ Tekton deployment completed successfully"
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    echo "✔️ Verifying deployment health"
+
+                    // Check service health via Rancher
+                    def services = getAllServices()
+
+                    services.each { service ->
+                        def healthCheck = sh(
+                            returnStdout: true,
+                            script: """
+                                curl -f -s \\
+                                    -H "Authorization: Bearer ${RANCHER_CREDENTIALS}" \\
+                                    ${RANCHER_URL}/v3/projects/${K8S_NAMESPACE}/workloads/deployment:${service}
+                            """
+                        )
+
+                        echo "Service ${service}: OK"
+                    }
+
+                    // Run smoke tests
+                    sh """
+                        curl -f https://api-${params.ENVIRONMENT}.streamverse.io/health
+                    """
+
+                    echo "✅ All health checks passed"
+                }
+            }
+        }
+
+        stage('Performance Benchmarks') {
+            steps {
+                script {
+                    echo "📊 Running performance benchmarks"
+
+                    sh """
+                        k6 run \\
+                            --vus 1000 \\
+                            --duration 5m \\
+                            --out json=performance-report.json \\
+                            tests/performance/load-test.js
+                    """
+
+                    archiveArtifacts artifacts: 'performance-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                notifySlack('SUCCESS', """
+                    ✅ Deployment successful!
+                    Environment: ${params.ENVIRONMENT}
+                    Version: ${VERSION}
+                    Duration: ${currentBuild.durationString}
+
+                    🔗 Tekton Dashboard: ${TEKTON_DASHBOARD}
+                    🔗 Rancher Dashboard: ${RANCHER_URL}
+                """)
+            }
+        }
+
+        failure {
+            script {
+                notifySlack('FAILURE', """
+                    ❌ Deployment failed!
+                    Environment: ${params.ENVIRONMENT}
+                    Version: ${VERSION}
+
+                    Check Jenkins logs for details: ${env.BUILD_URL}
+                """)
+            }
+        }
+
+        always {
+            // Cleanup
+            cleanWs(cleanWhenNotBuilt: false, deleteDirs: true)
+        }
+    }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+
+def generateVersion() {
+    return "v1.0.${env.BUILD_NUMBER}-${new Date().format('yyyyMMdd-HHmmss')}"
+}
+
+def getAllServices() {
+    return [
+        'ingestion-service',
+        'transcoding-service',
+        'ai-enhancement-service',
+        'drm-service',
+        'delivery-service',
+        'analytics-service',
+        'api-gateway'
+    ]
+}
+
+def buildDockerImage(serviceName, language) {
+    dir("streaming-saas/${serviceName}") {
+        echo "Building ${serviceName}"
+
+        docker.build(
+            "${DOCKER_REGISTRY}/streamverse/${serviceName}:${VERSION}",
+            "--build-arg VERSION=${VERSION} --build-arg BUILD_DATE=${BUILD_DATE} ."
+        )
+    }
+}
+
+def waitForAWXJob(jobId) {
+    timeout(time: 15, unit: 'MINUTES') {
+        waitUntil {
+            def status = sh(
+                returnStdout: true,
+                script: """
+                    curl -s \\
+                        -H "Authorization: Bearer ${AWX_CREDENTIALS}" \\
+                        ${AWX_URL}/api/v2/jobs/${jobId}/ | jq -r '.status'
+                """
+            ).trim()
+
+            return status == 'successful'
+        }
+    }
+}
+
+def notifySlack(status, message) {
+    def color = status == 'SUCCESS' ? 'good' : (status == 'FAILURE' ? 'danger' : 'warning')
+
+    sh """
+        curl -X POST \\
+            -H 'Content-type: application/json' \\
+            --data '{
+                "channel": "${SLACK_CHANNEL}",
+                "username": "Jenkins CI/CD",
+                "icon_emoji": ":rocket:",
+                "attachments": [{
+                    "color": "${color}",
+                    "text": "${message}",
+                    "footer": "StreamVerse SaaS Pipeline",
+                    "ts": ${System.currentTimeMillis() / 1000}
+                }]
+            }' \\
+            ${SLACK_CREDENTIALS}
+    """
+}

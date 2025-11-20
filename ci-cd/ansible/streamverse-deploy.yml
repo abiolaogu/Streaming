@@ -1,0 +1,299 @@
+---
+# StreamVerse SaaS - Ansible Playbook for AWX
+# Automated configuration and deployment orchestration
+# Called by Jenkins → Triggers Tekton pipelines
+
+- name: StreamVerse Streaming SaaS Deployment
+  hosts: kubernetes_cluster
+  gather_facts: yes
+  become: yes
+
+  vars:
+    streamverse_version: "{{ version | default('latest') }}"
+    streamverse_environment: "{{ environment | default('staging') }}"
+    streamverse_namespace: "streamverse-{{ streamverse_environment }}"
+    docker_registry: "registry.streamverse.io"
+    kubectl_bin: "/usr/local/bin/kubectl"
+    helm_bin: "/usr/local/bin/helm"
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg:
+          - "=== StreamVerse SaaS Deployment ==="
+          - "Version: {{ streamverse_version }}"
+          - "Environment: {{ streamverse_environment }}"
+          - "Namespace: {{ streamverse_namespace }}"
+          - "Registry: {{ docker_registry }}"
+
+    - name: Validate environment parameter
+      assert:
+        that:
+          - streamverse_environment in ['dev', 'staging', 'production']
+        fail_msg: "Invalid environment. Must be dev, staging, or production"
+
+  tasks:
+    # ==================== INFRASTRUCTURE SETUP ====================
+    - name: Ensure namespace exists
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ streamverse_namespace }}"
+            labels:
+              app: streamverse
+              environment: "{{ streamverse_environment }}"
+
+    - name: Create Docker registry secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: docker-registry-secret
+            namespace: "{{ streamverse_namespace }}"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ docker_registry_auth | b64encode }}"
+
+    # ==================== CONFIGMAPS ====================
+    - name: Deploy StreamVerse ConfigMaps
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/configmaps/ingestion-config.yaml"
+        - "../kubernetes/configmaps/transcoding-config.yaml"
+        - "../kubernetes/configmaps/analytics-config.yaml"
+
+    # ==================== SECRETS ====================
+    - name: Deploy StreamVerse Secrets
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('template', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/secrets/database-secrets.yaml.j2"
+        - "../kubernetes/secrets/api-keys.yaml.j2"
+        - "../kubernetes/secrets/drm-secrets.yaml.j2"
+      no_log: true
+
+    # ==================== PERSISTENT VOLUMES ====================
+    - name: Deploy PersistentVolumeClaims
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/storage/minio-pvc.yaml"
+        - "../kubernetes/storage/postgres-pvc.yaml"
+        - "../kubernetes/storage/scylla-pvc.yaml"
+
+    # ==================== SERVICES ====================
+    - name: Deploy Kubernetes Services
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/services/ingestion-service.yaml"
+        - "../kubernetes/services/transcoding-service.yaml"
+        - "../kubernetes/services/ai-enhancement-service.yaml"
+        - "../kubernetes/services/drm-service.yaml"
+        - "../kubernetes/services/delivery-service.yaml"
+        - "../kubernetes/services/analytics-service.yaml"
+        - "../kubernetes/services/api-gateway.yaml"
+
+    # ==================== DEPLOYMENTS ====================
+    - name: Deploy Microservices
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('template', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/deployments/ingestion-deployment.yaml.j2"
+        - "../kubernetes/deployments/transcoding-deployment.yaml.j2"
+        - "../kubernetes/deployments/ai-enhancement-deployment.yaml.j2"
+        - "../kubernetes/deployments/drm-deployment.yaml.j2"
+        - "../kubernetes/deployments/delivery-deployment.yaml.j2"
+        - "../kubernetes/deployments/analytics-deployment.yaml.j2"
+        - "../kubernetes/deployments/api-gateway-deployment.yaml.j2"
+
+    # ==================== STATEFULSETS ====================
+    - name: Deploy StatefulSets (Databases)
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/statefulsets/postgres.yaml"
+        - "../kubernetes/statefulsets/scylla.yaml"
+        - "../kubernetes/statefulsets/redis.yaml"
+
+    # ==================== INGRESS ====================
+    - name: Deploy Ingress Controllers
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_environment }}"
+        definition: "{{ lookup('template', '../kubernetes/ingress/ingress.yaml.j2') | from_yaml }}"
+
+    # ==================== HORIZONTAL POD AUTOSCALER ====================
+    - name: Configure Horizontal Pod Autoscalers
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition:
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: "{{ item.name }}-hpa"
+          spec:
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: "{{ item.name }}"
+            minReplicas: "{{ item.min_replicas }}"
+            maxReplicas: "{{ item.max_replicas }}"
+            metrics:
+              - type: Resource
+                resource:
+                  name: cpu
+                  target:
+                    type: Utilization
+                    averageUtilization: 70
+              - type: Resource
+                resource:
+                  name: memory
+                  target:
+                    type: Utilization
+                    averageUtilization: 80
+      loop:
+        - { name: "ingestion-service", min_replicas: 3, max_replicas: 20 }
+        - { name: "transcoding-service", min_replicas: 5, max_replicas: 50 }
+        - { name: "delivery-service", min_replicas: 3, max_replicas: 30 }
+        - { name: "api-gateway", min_replicas: 3, max_replicas: 15 }
+
+    # ==================== NETWORK POLICIES ====================
+    - name: Apply Network Policies
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', '../kubernetes/network-policies/default-deny.yaml') | from_yaml }}"
+
+    # ==================== SERVICE MESH (Istio) ====================
+    - name: Configure Istio VirtualServices
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/istio/virtual-service.yaml"
+        - "../kubernetes/istio/destination-rules.yaml"
+      when: service_mesh_enabled | default(true)
+
+    # ==================== MONITORING ====================
+    - name: Deploy Prometheus ServiceMonitors
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ streamverse_namespace }}"
+        definition: "{{ lookup('file', item) | from_yaml }}"
+      loop:
+        - "../kubernetes/monitoring/service-monitor.yaml"
+        - "../kubernetes/monitoring/pod-monitor.yaml"
+
+    # ==================== WAIT FOR ROLLOUT ====================
+    - name: Wait for deployments to be ready
+      command: >
+        {{ kubectl_bin }} rollout status deployment/{{ item }}
+        -n {{ streamverse_namespace }}
+        --timeout=600s
+      loop:
+        - "ingestion-service"
+        - "transcoding-service"
+        - "ai-enhancement-service"
+        - "drm-service"
+        - "delivery-service"
+        - "analytics-service"
+        - "api-gateway"
+      register: rollout_status
+      retries: 3
+      delay: 10
+
+    # ==================== HEALTH CHECKS ====================
+    - name: Verify service health
+      uri:
+        url: "http://{{ item }}.{{ streamverse_namespace }}.svc.cluster.local:{{ port }}/health"
+        method: GET
+        status_code: 200
+      loop:
+        - { service: "api-gateway", port: 8080 }
+        - { service: "ingestion-service", port: 8100 }
+        - { service: "transcoding-service", port: 8101 }
+      register: health_check
+      retries: 5
+      delay: 10
+      until: health_check.status == 200
+
+  post_tasks:
+    - name: Deployment summary
+      debug:
+        msg:
+          - "=== Deployment Complete ==="
+          - "Environment: {{ streamverse_environment }}"
+          - "Version: {{ streamverse_version }}"
+          - "Namespace: {{ streamverse_namespace }}"
+          - "Services: 7 microservices deployed"
+          - "Status: All services healthy ✅"
+          - ""
+          - "Next: Tekton pipeline will be triggered"
+
+    - name: Trigger Tekton pipeline
+      uri:
+        url: "http://tekton-triggers-eventlistener.tekton-pipelines.svc.cluster.local:8080"
+        method: POST
+        body_format: json
+        body:
+          environment: "{{ streamverse_environment }}"
+          version: "{{ streamverse_version }}"
+          namespace: "{{ streamverse_namespace }}"
+        status_code: [200, 201, 202]
+      register: tekton_trigger
+
+    - name: Display Tekton dashboard URL
+      debug:
+        msg: "Tekton Dashboard: https://tekton.streamverse.io/#/namespaces/tekton-pipelines/pipelineruns"
+
+  handlers:
+    - name: restart_kubelet
+      service:
+        name: kubelet
+        state: restarted
+
+---
+# Additional playbook for rollback
+- name: StreamVerse Rollback
+  hosts: kubernetes_cluster
+  gather_facts: no
+
+  vars:
+    streamverse_namespace: "streamverse-{{ environment }}"
+    previous_version: "{{ rollback_version }}"
+
+  tasks:
+    - name: Rollback deployments
+      command: >
+        kubectl rollout undo deployment/{{ item }}
+        -n {{ streamverse_namespace }}
+      loop:
+        - "ingestion-service"
+        - "transcoding-service"
+        - "ai-enhancement-service"
+        - "drm-service"
+        - "delivery-service"
+        - "analytics-service"
+        - "api-gateway"
+      when: rollback_enabled | default(false)
