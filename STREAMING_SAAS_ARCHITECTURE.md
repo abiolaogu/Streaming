@@ -5,6 +5,7 @@
 StreamVerse SaaS is a next-generation video streaming infrastructure platform that provides 2.5x cost savings over Cloudflare Stream with superior performance through:
 
 - **AI-Powered Optimization**: Real-time quality enhancement and adaptive delivery
+- **Smallpixel SDK Integration**: Client-side AI upscaling saves 60-70% additional bandwidth across web, mobile, and TV apps
 - **Dedicated Infrastructure**: On-premise physical servers + Runpod.io GPU cloud for elastic scaling
 - **Hybrid GPU Architecture**: Local NVIDIA GPUs + on-demand Runpod.io GPU instances
 - **Hybrid P2P Delivery**: 70% bandwidth cost reduction through intelligent peer distribution
