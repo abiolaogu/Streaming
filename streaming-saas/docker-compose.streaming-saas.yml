@@ -1,5 +1,6 @@
 # StreamVerse Streaming-as-a-Service - Complete Production Stack
-# 1000x better than Cloudflare Stream
+# On-Premise Infrastructure with Hybrid GPU Scaling (Runpod.io)
+# 2.5x cheaper than Cloudflare Stream ($0.40 vs $1.00 per 1000 mins)
 
 version: '3.9'
 
@@ -57,6 +58,12 @@ services:
       - FFMPEG_THREADS=8
       - KAFKA_BROKERS=kafka:9092
       - STORAGE_ENDPOINT=http://minio:9000
+      # Runpod.io Hybrid GPU Scaling
+      - RUNPOD_API_KEY=${RUNPOD_API_KEY}
+      - RUNPOD_GPU_TYPE=RTX4090
+      - RUNPOD_MAX_PODS=10
+      - RUNPOD_AUTO_SCALE=true
+      - LOCAL_GPU_COUNT=4
     runtime: nvidia  # NVIDIA GPU support
     volumes:
       - transcoding-cache:/cache
