@@ -1,0 +1,369 @@
+# StreamVerse Tekton Pipeline - Kubernetes-native CI/CD
+# Deployed via Jenkins → AWX/Ansible → Tekton → Rancher/K8s
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: streamverse-deployment
+  namespace: tekton-pipelines
+  labels:
+    app: streamverse
+    tier: platform
+spec:
+  description: |
+    StreamVerse Streaming SaaS deployment pipeline.
+    Deploys microservices to Kubernetes with zero-downtime rolling updates.
+
+  params:
+    - name: environment
+      type: string
+      description: Target environment (dev/staging/production)
+      default: "staging"
+    - name: version
+      type: string
+      description: Version tag to deploy
+    - name: namespace
+      type: string
+      description: Kubernetes namespace
+      default: "streamverse-staging"
+    - name: replicas
+      type: string
+      description: Number of replicas per service
+      default: "3"
+
+  workspaces:
+    - name: shared-workspace
+      description: Shared workspace for manifests
+
+  tasks:
+    # Task 1: Fetch Kubernetes manifests
+    - name: fetch-manifests
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+      params:
+        - name: url
+          value: "https://github.com/streamverse/k8s-manifests.git"
+        - name: revision
+          value: "main"
+
+    # Task 2: Update image tags
+    - name: update-image-tags
+      runAfter: ["fetch-manifests"]
+      taskRef:
+        name: yq-replace
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: files
+          value: "kubernetes/**/*.yaml"
+        - name: expression
+          value: ".spec.template.spec.containers[0].image"
+        - name: value
+          value: "registry.streamverse.io/streamverse/*:$(params.version)"
+
+    # Task 3: Deploy to Kubernetes
+    - name: deploy-to-k8s
+      runAfter: ["update-image-tags"]
+      taskRef:
+        name: kubectl-deploy
+      workspaces:
+        - name: manifest-dir
+          workspace: shared-workspace
+      params:
+        - name: namespace
+          value: "$(params.namespace)"
+        - name: manifests
+          value:
+            - "kubernetes/namespaces/namespace.yaml"
+            - "kubernetes/configmaps/*.yaml"
+            - "kubernetes/secrets/*.yaml"
+            - "kubernetes/services/*.yaml"
+            - "kubernetes/deployments/*.yaml"
+
+    # Task 4: Wait for rollout
+    - name: wait-for-rollout
+      runAfter: ["deploy-to-k8s"]
+      taskRef:
+        name: kubectl-wait-rollout
+      params:
+        - name: namespace
+          value: "$(params.namespace)"
+        - name: deployments
+          value:
+            - "ingestion-service"
+            - "transcoding-service"
+            - "ai-enhancement-service"
+            - "drm-service"
+            - "delivery-service"
+            - "analytics-service"
+            - "api-gateway"
+
+    # Task 5: Health check
+    - name: health-check
+      runAfter: ["wait-for-rollout"]
+      taskRef:
+        name: curl-health-check
+      params:
+        - name: urls
+          value:
+            - "http://api-gateway.$(params.namespace).svc.cluster.local:8080/health"
+            - "http://ingestion-service.$(params.namespace).svc.cluster.local:8100/health"
+            - "http://transcoding-service.$(params.namespace).svc.cluster.local:8101/health"
+
+    # Task 6: Run smoke tests
+    - name: smoke-tests
+      runAfter: ["health-check"]
+      taskRef:
+        name: run-tests
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: test-command
+          value: "npm run test:smoke -- --env=$(params.environment)"
+
+    # Task 7: Update metrics
+    - name: update-metrics
+      runAfter: ["smoke-tests"]
+      taskRef:
+        name: prometheus-metrics
+      params:
+        - name: namespace
+          value: "$(params.namespace)"
+        - name: version
+          value: "$(params.version)"
+
+---
+# Tekton Task: kubectl-deploy
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kubectl-deploy
+  namespace: tekton-pipelines
+spec:
+  description: Deploy Kubernetes manifests
+  params:
+    - name: namespace
+      type: string
+    - name: manifests
+      type: array
+  workspaces:
+    - name: manifest-dir
+  steps:
+    - name: apply-manifests
+      image: bitnami/kubectl:latest
+      script: |
+        #!/bin/bash
+        set -e
+
+        echo "Deploying to namespace: $(params.namespace)"
+
+        for manifest in $(params.manifests[*]); do
+          echo "Applying: $manifest"
+          kubectl apply -f $(workspaces.manifest-dir.path)/$manifest -n $(params.namespace)
+        done
+
+        echo "✅ All manifests applied successfully"
+
+---
+# Tekton Task: kubectl-wait-rollout
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kubectl-wait-rollout
+  namespace: tekton-pipelines
+spec:
+  description: Wait for deployments to rollout
+  params:
+    - name: namespace
+      type: string
+    - name: deployments
+      type: array
+  steps:
+    - name: wait-rollout
+      image: bitnami/kubectl:latest
+      script: |
+        #!/bin/bash
+        set -e
+
+        echo "Waiting for rollout to complete..."
+
+        for deployment in $(params.deployments[*]); do
+          echo "Checking: $deployment"
+          kubectl rollout status deployment/$deployment -n $(params.namespace) --timeout=10m
+        done
+
+        echo "✅ All rollouts completed"
+
+---
+# Tekton Task: curl-health-check
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: curl-health-check
+  namespace: tekton-pipelines
+spec:
+  description: Run HTTP health checks
+  params:
+    - name: urls
+      type: array
+  steps:
+    - name: health-check
+      image: curlimages/curl:latest
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "Running health checks..."
+
+        for url in $(params.urls[*]); do
+          echo "Checking: $url"
+
+          if curl -f -s $url > /dev/null; then
+            echo "✅ $url is healthy"
+          else
+            echo "❌ $url failed health check"
+            exit 1
+          fi
+        done
+
+        echo "✅ All health checks passed"
+
+---
+# Tekton Task: run-tests
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-tests
+  namespace: tekton-pipelines
+spec:
+  description: Run smoke tests
+  params:
+    - name: test-command
+      type: string
+  workspaces:
+    - name: source
+  steps:
+    - name: run-tests
+      image: node:18-alpine
+      workingDir: $(workspaces.source.path)/tests
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "Installing dependencies..."
+        npm install
+
+        echo "Running tests..."
+        $(params.test-command)
+
+        echo "✅ Tests passed"
+
+---
+# Tekton Task: prometheus-metrics
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: prometheus-metrics
+  namespace: tekton-pipelines
+spec:
+  description: Update Prometheus metrics
+  params:
+    - name: namespace
+      type: string
+    - name: version
+      type: string
+  steps:
+    - name: update-metrics
+      image: prom/pushgateway:latest
+      script: |
+        #!/bin/sh
+        set -e
+
+        echo "Updating deployment metrics..."
+
+        cat <<EOF | curl --data-binary @- http://prometheus-pushgateway:9091/metrics/job/tekton/instance/$(params.namespace)
+# TYPE streamverse_deployment_info gauge
+streamverse_deployment_info{namespace="$(params.namespace)",version="$(params.version)",status="success"} 1
+# TYPE streamverse_deployment_timestamp gauge
+streamverse_deployment_timestamp{namespace="$(params.namespace)"} $(date +%s)
+EOF
+
+        echo "✅ Metrics updated"
+
+---
+# Tekton TriggerTemplate
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: streamverse-trigger-template
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: environment
+      description: Target environment
+    - name: version
+      description: Version to deploy
+    - name: namespace
+      description: Kubernetes namespace
+
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: streamverse-run-
+      spec:
+        pipelineRef:
+          name: streamverse-deployment
+        params:
+          - name: environment
+            value: $(tt.params.environment)
+          - name: version
+            value: $(tt.params.version)
+          - name: namespace
+            value: $(tt.params.namespace)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+
+---
+# Tekton TriggerBinding
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: streamverse-trigger-binding
+  namespace: tekton-pipelines
+spec:
+  params:
+    - name: environment
+      value: $(body.environment)
+    - name: version
+      value: $(body.version)
+    - name: namespace
+      value: $(body.namespace)
+
+---
+# Tekton EventListener
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: streamverse-listener
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: tekton-triggers-sa
+  triggers:
+    - name: streamverse-trigger
+      bindings:
+        - ref: streamverse-trigger-binding
+      template:
+        ref: streamverse-trigger-template
