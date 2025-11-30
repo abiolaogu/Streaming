@@ -9,6 +9,7 @@ import (
 	"github.com/streamverse/common-go/logger"
 	"github.com/streamverse/streaming-service/models"
 	"github.com/streamverse/streaming-service/service"
+	"go.uber.org/zap"
 )
 
 // StreamingHandler handles HTTP requests for streaming
@@ -33,7 +34,7 @@ func (h *StreamingHandler) GetHLSManifest(c *gin.Context) {
 	// Validate token
 	userID, err := h.service.ValidateToken(c.Request.Context(), token)
 	if err != nil {
-		h.logger.Error("Invalid token", logger.Error(err))
+		h.logger.Error("Invalid token", zap.Error(err))
 		c.JSON(http.StatusUnauthorized, errors.NewUnauthorizedError("Invalid token"))
 		return
 	}
@@ -41,7 +42,7 @@ func (h *StreamingHandler) GetHLSManifest(c *gin.Context) {
 	// Generate HLS manifest
 	manifest, err := h.service.GenerateHLSManifest(c.Request.Context(), contentID, userID)
 	if err != nil {
-		h.logger.Error("Failed to get manifest", logger.Error(err))
+		h.logger.Error("Failed to get manifest", zap.Error(err))
 		c.JSON(http.StatusNotFound, errors.NewNotFoundError(err.Error()))
 		return
 	}
@@ -59,7 +60,7 @@ func (h *StreamingHandler) GetDASHManifest(c *gin.Context) {
 	// Validate token
 	userID, err := h.service.ValidateToken(c.Request.Context(), token)
 	if err != nil {
-		h.logger.Error("Invalid token", logger.Error(err))
+		h.logger.Error("Invalid token", zap.Error(err))
 		c.JSON(http.StatusUnauthorized, errors.NewUnauthorizedError("Invalid token"))
 		return
 	}
@@ -67,7 +68,7 @@ func (h *StreamingHandler) GetDASHManifest(c *gin.Context) {
 	// Generate DASH manifest
 	manifest, err := h.service.GenerateDASHManifest(c.Request.Context(), contentID, userID)
 	if err != nil {
-		h.logger.Error("Failed to get manifest", logger.Error(err))
+		h.logger.Error("Failed to get manifest", zap.Error(err))
 		c.JSON(http.StatusNotFound, errors.NewNotFoundError(err.Error()))
 		return
 	}
@@ -93,7 +94,7 @@ func (h *StreamingHandler) GenerateToken(c *gin.Context) {
 
 	token, err := h.service.GenerateToken(c.Request.Context(), req.ContentID, userID.(string), ip, deviceID)
 	if err != nil {
-		h.logger.Error("Failed to generate token", logger.Error(err))
+		h.logger.Error("Failed to generate token", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, errors.NewInternalError("Failed to generate token"))
 		return
 	}
@@ -116,7 +117,7 @@ func (h *StreamingHandler) SubmitQoE(c *gin.Context) {
 	}
 
 	if err := h.service.SubmitQoE(c.Request.Context(), &event); err != nil {
-		h.logger.Error("Failed to submit QoE", logger.Error(err))
+		h.logger.Error("Failed to submit QoE", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, errors.NewInternalError("Failed to submit QoE"))
 		return
 	}
@@ -132,7 +133,7 @@ func (h *StreamingHandler) GetManifest(c *gin.Context) {
 
 	manifest, err := h.service.GetManifest(c.Request.Context(), contentID, format, userID.(string))
 	if err != nil {
-		h.logger.Error("Failed to get manifest", logger.Error(err))
+		h.logger.Error("Failed to get manifest", zap.Error(err))
 		c.JSON(http.StatusNotFound, errors.NewNotFoundError(err.Error()))
 		return
 	}
@@ -153,7 +154,7 @@ func (h *StreamingHandler) CreateSession(c *gin.Context) {
 
 	session, err := h.service.CreateSession(c.Request.Context(), userID.(string), req.ContentID, deviceID)
 	if err != nil {
-		h.logger.Error("Failed to create session", logger.Error(err))
+		h.logger.Error("Failed to create session", zap.Error(err))
 		c.JSON(http.StatusBadRequest, errors.NewInvalidInputError(err.Error()))
 		return
 	}
@@ -174,7 +175,7 @@ func (h *StreamingHandler) UpdatePosition(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateSessionPosition(c.Request.Context(), sessionID, req.Position); err != nil {
-		h.logger.Error("Failed to update position", logger.Error(err))
+		h.logger.Error("Failed to update position", zap.Error(err))
 		c.JSON(http.StatusNotFound, errors.NewNotFoundError(err.Error()))
 		return
 	}
@@ -187,7 +188,7 @@ func (h *StreamingHandler) Heartbeat(c *gin.Context) {
 	sessionID := c.Param("sessionId")
 
 	if err := h.service.SendHeartbeat(c.Request.Context(), sessionID); err != nil {
-		h.logger.Error("Failed to send heartbeat", logger.Error(err))
+		h.logger.Error("Failed to send heartbeat", zap.Error(err))
 		c.JSON(http.StatusNotFound, errors.NewNotFoundError(err.Error()))
 		return
 	}
@@ -200,7 +201,7 @@ func (h *StreamingHandler) EndSession(c *gin.Context) {
 	sessionID := c.Param("sessionId")
 
 	if err := h.service.EndSession(c.Request.Context(), sessionID); err != nil {
-		h.logger.Error("Failed to end session", logger.Error(err))
+		h.logger.Error("Failed to end session", zap.Error(err))
 		c.JSON(http.StatusNotFound, errors.NewNotFoundError(err.Error()))
 		return
 	}

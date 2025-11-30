@@ -3,26 +3,48 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/streamverse/common-go/cache"
 	"github.com/streamverse/content-service/models"
 	"github.com/streamverse/content-service/repository"
 )
 
 // ContentService handles content business logic
 type ContentService struct {
-	repo *repository.ContentRepository
+	repo  *repository.ContentRepository
+	cache *cache.RedisClient
 }
 
 // NewContentService creates a new content service
-func NewContentService(repo *repository.ContentRepository) *ContentService {
+func NewContentService(repo *repository.ContentRepository, cache *cache.RedisClient) *ContentService {
 	return &ContentService{
-		repo: repo,
+		repo:  repo,
+		cache: cache,
 	}
 }
 
 // GetContentByID retrieves content by ID
 func (s *ContentService) GetContentByID(ctx context.Context, id string) (*models.Content, error) {
-	return s.repo.GetByID(ctx, id)
+	// Try cache first
+	cacheKey := fmt.Sprintf("content:%s", id)
+	var content models.Content
+	if err := s.cache.Get(ctx, cacheKey, &content); err == nil {
+		return &content, nil
+	}
+
+	// Cache miss - query DB
+	c, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache result (TTL: 1 hour)
+	if err := s.cache.Set(ctx, cacheKey, c, time.Hour); err != nil {
+		// Log error
+	}
+
+	return c, nil
 }
 
 // ListContent lists content with filters
@@ -79,7 +101,25 @@ func (s *ContentService) GetHomeContent(ctx context.Context) ([]models.ContentRo
 
 // GetCategories gets all categories with counts - Issue #13
 func (s *ContentService) GetCategories(ctx context.Context) ([]models.Category, error) {
-	return s.repo.GetCategories(ctx)
+	// Try cache first
+	cacheKey := "content:categories"
+	var categories []models.Category
+	if err := s.cache.Get(ctx, cacheKey, &categories); err == nil {
+		return categories, nil
+	}
+
+	// Cache miss - query DB
+	cats, err := s.repo.GetCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache result (TTL: 1 hour)
+	if err := s.cache.Set(ctx, cacheKey, cats, time.Hour); err != nil {
+		// Log error
+	}
+
+	return cats, nil
 }
 
 // GetTrending gets trending content by region/device - Issue #13
@@ -116,4 +156,3 @@ func (s *ContentService) GetEntitlements(ctx context.Context, contentID, userID 
 	// For now, return a basic entitlement check
 	return s.repo.GetEntitlements(ctx, contentID, userID)
 }
-

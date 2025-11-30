@@ -21,7 +21,7 @@ const TenantContextKey = "tenant_context"
 func TenantMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tenantID := c.GetHeader("X-Tenant-ID")
-		
+
 		// If no tenant ID in header, try to get from JWT token
 		if tenantID == "" {
 			if tenantIDClaim, exists := c.Get("tenant_id"); exists {
@@ -34,9 +34,8 @@ func TenantMiddleware() gin.HandlerFunc {
 		// Set tenant ID in context
 		if tenantID != "" {
 			c.Set("tenant_id", tenantID)
-			
+
 			// Build tenant context
-			userID, _ := c.Get("user_id")
 			roles, _ := c.Get("roles")
 			rolesList := []string{}
 			if roles != nil {
@@ -80,4 +79,3 @@ func getStringFromContext(c *gin.Context, key string) string {
 	}
 	return ""
 }
-

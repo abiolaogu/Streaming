@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package streamverse.content.v1;
 
-option go_package = "github.com/streamverse/proto/gen/go/content/v1";
+option go_package = "github.com/streamverse/proto/gen/go/content";
 
 import "google/protobuf/timestamp.proto";
 

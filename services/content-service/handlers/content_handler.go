@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	"github.com/streamverse/common-go/logger"
 	"github.com/streamverse/content-service/models"
 	"github.com/streamverse/content-service/service"
+	"go.uber.org/zap"
 )
 
 // ContentHandler handles HTTP requests for content
@@ -31,7 +31,7 @@ func (h *ContentHandler) GetContentByID(c *gin.Context) {
 
 	content, err := h.service.GetContentByID(c.Request.Context(), id)
 	if err != nil {
-		h.logger.Error("Failed to get content", logger.String("id", id), logger.Error(err))
+		h.logger.Error("Failed to get content", zap.String("id", id), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": "Content not found"})
 		return
 	}
@@ -47,7 +47,7 @@ func (h *ContentHandler) GetContentByCategory(c *gin.Context) {
 
 	contents, total, err := h.service.ListContent(c.Request.Context(), category, page, pageSize)
 	if err != nil {
-		h.logger.Error("Failed to list content", logger.Error(err))
+		h.logger.Error("Failed to list content", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch content"})
 		return
 	}
@@ -70,7 +70,7 @@ func (h *ContentHandler) CreateContent(c *gin.Context) {
 
 	created, err := h.service.CreateContent(c.Request.Context(), &content)
 	if err != nil {
-		h.logger.Error("Failed to create content", logger.Error(err))
+		h.logger.Error("Failed to create content", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -89,7 +89,7 @@ func (h *ContentHandler) UpdateContent(c *gin.Context) {
 	}
 
 	if err := h.service.UpdateContent(c.Request.Context(), id, &content); err != nil {
-		h.logger.Error("Failed to update content", logger.String("id", id), logger.Error(err))
+		h.logger.Error("Failed to update content", zap.String("id", id), zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -102,7 +102,7 @@ func (h *ContentHandler) DeleteContent(c *gin.Context) {
 	id := c.Param("id")
 
 	if err := h.service.DeleteContent(c.Request.Context(), id); err != nil {
-		h.logger.Error("Failed to delete content", logger.String("id", id), logger.Error(err))
+		h.logger.Error("Failed to delete content", zap.String("id", id), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
@@ -123,15 +123,15 @@ func (h *ContentHandler) SearchContent(c *gin.Context) {
 
 	contents, total, err := h.service.SearchContent(c.Request.Context(), query, page, pageSize)
 	if err != nil {
-		h.logger.Error("Failed to search content", logger.Error(err))
+		h.logger.Error("Failed to search content", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"results":  contents,
-		"total":    total,
-		"page":     page,
+		"results":   contents,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }
@@ -140,7 +140,7 @@ func (h *ContentHandler) SearchContent(c *gin.Context) {
 func (h *ContentHandler) GetHomeContent(c *gin.Context) {
 	rows, err := h.service.GetHomeContent(c.Request.Context())
 	if err != nil {
-		h.logger.Error("Failed to get home content", logger.Error(err))
+		h.logger.Error("Failed to get home content", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch home content"})
 		return
 	}
@@ -152,7 +152,7 @@ func (h *ContentHandler) GetHomeContent(c *gin.Context) {
 func (h *ContentHandler) GetCategories(c *gin.Context) {
 	categories, err := h.service.GetCategories(c.Request.Context())
 	if err != nil {
-		h.logger.Error("Failed to get categories", logger.Error(err))
+		h.logger.Error("Failed to get categories", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch categories"})
 		return
 	}
@@ -168,7 +168,7 @@ func (h *ContentHandler) GetTrending(c *gin.Context) {
 
 	trending, err := h.service.GetTrending(c.Request.Context(), region, deviceType, limit)
 	if err != nil {
-		h.logger.Error("Failed to get trending", logger.Error(err))
+		h.logger.Error("Failed to get trending", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch trending content"})
 		return
 	}
@@ -186,7 +186,7 @@ func (h *ContentHandler) RateContent(c *gin.Context) {
 	}
 
 	var req struct {
-		Stars  int    `json:"stars" binding:"required,min=1,max=5"`
+		Stars   int    `json:"stars" binding:"required,min=1,max=5"`
 		Comment string `json:"comment,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -196,7 +196,7 @@ func (h *ContentHandler) RateContent(c *gin.Context) {
 
 	err := h.service.RateContent(c.Request.Context(), contentID, userID.(string), req.Stars, req.Comment)
 	if err != nil {
-		h.logger.Error("Failed to rate content", logger.Error(err))
+		h.logger.Error("Failed to rate content", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit rating"})
 		return
 	}
@@ -210,7 +210,7 @@ func (h *ContentHandler) GetRatings(c *gin.Context) {
 
 	aggregate, err := h.service.GetRatings(c.Request.Context(), contentID)
 	if err != nil {
-		h.logger.Error("Failed to get ratings", logger.Error(err))
+		h.logger.Error("Failed to get ratings", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch ratings"})
 		return
 	}
@@ -225,7 +225,7 @@ func (h *ContentHandler) GetSimilar(c *gin.Context) {
 
 	similar, err := h.service.GetSimilar(c.Request.Context(), contentID, limit)
 	if err != nil {
-		h.logger.Error("Failed to get similar content", logger.Error(err))
+		h.logger.Error("Failed to get similar content", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch similar content"})
 		return
 	}
@@ -244,11 +244,10 @@ func (h *ContentHandler) GetEntitlements(c *gin.Context) {
 
 	entitlement, err := h.service.GetEntitlements(c.Request.Context(), contentID, userID.(string))
 	if err != nil {
-		h.logger.Error("Failed to get entitlements", logger.Error(err))
+		h.logger.Error("Failed to get entitlements", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check entitlements"})
 		return
 	}
 
 	c.JSON(http.StatusOK, entitlement)
 }
-

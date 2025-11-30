@@ -1,0 +1,41 @@
+name: StreamVerse CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install dependencies
+      run: |
+        go mod download
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+    - name: Build Services
+      run: |
+        go build -v ./services/user-service/...
+        go build -v ./services/content-service/...
+        go build -v ./services/streaming-service/...
+
+    - name: Run Unit Tests
+      run: go test -v ./...
+
+    - name: Run Security Scan
+      run: gosec ./...
+
+    - name: Build Docker Images
+      run: |
+        docker build -t streamverse/user-service:latest -f services/user-service/Dockerfile .
+        docker build -t streamverse/content-service:latest -f services/content-service/Dockerfile .
+        docker build -t streamverse/streaming-service:latest -f services/streaming-service/Dockerfile .

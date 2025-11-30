@@ -1,0 +1,177 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: streamverse
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: streamverse/user-service:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVER_PORT
+          value: "8080"
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              name: user-db-conn
+              key: uri
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: host
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: port
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: password
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: streamverse
+spec:
+  selector:
+    app: user-service
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: content-service
+  namespace: streamverse
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: content-service
+  template:
+    metadata:
+      labels:
+        app: content-service
+    spec:
+      containers:
+      - name: content-service
+        image: streamverse/content-service:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVER_PORT
+          value: "8080"
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              name: content-db-conn
+              key: uri
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: host
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: port
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: content-service
+  namespace: streamverse
+spec:
+  selector:
+    app: content-service
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streaming-service
+  namespace: streamverse
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: streaming-service
+  template:
+    metadata:
+      labels:
+        app: streaming-service
+    spec:
+      containers:
+      - name: streaming-service
+        image: streamverse/streaming-service:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SERVER_PORT
+          value: "8080"
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              name: streaming-db-conn
+              key: uri
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: host
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: port
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cache-conn
+              key: password
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: jwt-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streaming-service
+  namespace: streamverse
+spec:
+  selector:
+    app: streaming-service
+  ports:
+  - port: 80
+    targetPort: 8080

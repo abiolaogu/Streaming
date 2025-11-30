@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/streamverse/common-go/cache"
 	"github.com/streamverse/common-go/config"
 	"github.com/streamverse/common-go/database"
 	"github.com/streamverse/common-go/logger"
@@ -16,6 +17,7 @@ import (
 	userHandler "github.com/streamverse/user-service/handlers"
 	"github.com/streamverse/user-service/repository"
 	"github.com/streamverse/user-service/service"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -36,15 +38,24 @@ func main() {
 		cfg.Database.ConnectTimeout,
 	)
 	if err != nil {
-		log.Fatal("Failed to connect to database", logger.Error(err))
+		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
 	defer db.Disconnect(context.Background())
 
 	// Initialize repository
 	userRepo := repository.NewUserRepository(db)
 
+	// Initialize Redis
+	redisClient := cache.NewRedisClient(
+		cfg.Redis.Host+":"+cfg.Redis.Port,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+		log,
+	)
+	defer redisClient.Close()
+
 	// Initialize service
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, redisClient)
 
 	// Initialize handlers
 	userHandler := userHandler.NewUserHandler(userService, log)
@@ -91,11 +102,11 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server", logger.Error(err))
+			log.Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
 
-	log.Info("User service started", logger.String("address", srv.Addr))
+	log.Info("User service started", zap.String("address", srv.Addr))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -107,9 +118,8 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown", logger.Error(err))
+		log.Fatal("Server forced to shutdown", zap.Error(err))
 	}
 
 	log.Info("Server exited")
 }
-

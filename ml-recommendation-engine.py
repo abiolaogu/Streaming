@@ -100,13 +100,18 @@ class InteractionDataset(Dataset):
 # Recommendation Service
 # ============================================================================
 
+from psycopg2 import pool
+
 class RecommendationService:
     """Main recommendation service with multiple algorithms"""
     
     def __init__(self, db_config: Dict, redis_host: str = 'localhost', 
                  redis_port: int = 6379):
-        # Database connection
-        self.db_conn = psycopg2.connect(**db_config)
+        # Database connection pool
+        self.db_pool = pool.SimpleConnectionPool(
+            1, 20,
+            **db_config
+        )
         
         # Redis for caching
         self.redis_client = Redis(host=redis_host, port=redis_port, 
@@ -120,6 +125,12 @@ class RecommendationService:
         # Device
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logger.info(f"Using device: {self.device}")
+
+    def get_db_connection(self):
+        return self.db_pool.getconn()
+
+    def release_db_connection(self, conn):
+        self.db_pool.putconn(conn)
     
     def load_interaction_data(self, days: int = 90) -> pd.DataFrame:
         """Load user-item interaction data from database"""
@@ -140,10 +151,13 @@ class RecommendationService:
         ORDER BY wh.watched_at DESC
         """
         
-        df = pd.read_sql(query, self.db_conn, params=(days,))
-        logger.info(f"Loaded {len(df)} interactions from last {days} days")
-        
-        return df
+        conn = self.get_db_connection()
+        try:
+            df = pd.read_sql(query, conn, params=(days,))
+            logger.info(f"Loaded {len(df)} interactions from last {days} days")
+            return df
+        finally:
+            self.release_db_connection(conn)
     
     def train_ncf_model(self, df: pd.DataFrame, epochs: int = 10, 
                         batch_size: int = 1024, lr: float = 0.001):
@@ -269,10 +283,14 @@ class RecommendationService:
         ) recent_watches
         """
         
-        cursor = self.db_conn.cursor()
-        cursor.execute(query, (profile_id,))
-        watched_items = cursor.fetchall()
-        cursor.close()
+        conn = self.get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, (profile_id,))
+            watched_items = cursor.fetchall()
+            cursor.close()
+        finally:
+            self.release_db_connection(conn)
         
         if not watched_items:
             return self.get_popular_content(top_k)
@@ -296,10 +314,14 @@ class RecommendationService:
         LIMIT %s
         """
         
-        cursor = self.db_conn.cursor()
-        cursor.execute(query, watched_ids + watched_ids + [top_k])
-        recommendations = [row[0] for row in cursor.fetchall()]
-        cursor.close()
+        conn = self.get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, watched_ids + watched_ids + [top_k])
+            recommendations = [row[0] for row in cursor.fetchall()]
+            cursor.close()
+        finally:
+            self.release_db_connection(conn)
         
         # Cache for 30 minutes
         self.redis_client.setex(cache_key, 1800, str(recommendations))
@@ -328,10 +350,14 @@ class RecommendationService:
         LIMIT %s
         """
         
-        cursor = self.db_conn.cursor()
-        cursor.execute(query, (top_k,))
-        popular = [row[0] for row in cursor.fetchall()]
-        cursor.close()
+        conn = self.get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, (top_k,))
+            popular = [row[0] for row in cursor.fetchall()]
+            cursor.close()
+        finally:
+            self.release_db_connection(conn)
         
         # Cache for 10 minutes
         self.redis_client.setex(cache_key, 600, str(popular))
@@ -371,10 +397,14 @@ class RecommendationService:
         LIMIT %s
         """
         
-        cursor = self.db_conn.cursor()
-        cursor.execute(query, (profile_id, profile_id, top_k))
-        recommendations = [row[0] for row in cursor.fetchall()]
-        cursor.close()
+        conn = self.get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, (profile_id, profile_id, top_k))
+            recommendations = [row[0] for row in cursor.fetchall()]
+            cursor.close()
+        finally:
+            self.release_db_connection(conn)
         
         return recommendations
     
@@ -424,20 +454,24 @@ class RecommendationService:
         WHERE id IN ({placeholders})
         """
         
-        cursor = self.db_conn.cursor()
-        cursor.execute(query, content_ids)
-        
-        results = []
-        for row in cursor.fetchall():
-            results.append({
-                'id': str(row[0]),
-                'title': row[1],
-                'type': row[2],
-                'poster_url': row[3],
-                'rating': row[4],
-                'genres': row[5]
-            })
-        cursor.close()
+        conn = self.get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, tuple(content_ids))
+            
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    'id': str(row[0]),
+                    'title': row[1],
+                    'type': row[2],
+                    'poster_url': row[3],
+                    'rating': row[4],
+                    'genres': row[5]
+                })
+            cursor.close()
+        finally:
+            self.release_db_connection(conn)
         
         # Cache for 15 minutes
         self.redis_client.setex(cache_key, 900, str(results))

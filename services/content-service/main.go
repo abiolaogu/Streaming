@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/streamverse/common-go/cache"
 	"github.com/streamverse/common-go/config"
 	"github.com/streamverse/common-go/database"
 	"github.com/streamverse/common-go/logger"
@@ -16,6 +17,7 @@ import (
 	contentHandler "github.com/streamverse/content-service/handlers"
 	"github.com/streamverse/content-service/repository"
 	"github.com/streamverse/content-service/service"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -38,15 +40,24 @@ func main() {
 		cfg.Database.ConnectTimeout,
 	)
 	if err != nil {
-		log.Fatal("Failed to connect to database", logger.Error(err))
+		log.Fatal("Failed to connect to database", zap.Error(err))
 	}
 	defer db.Disconnect(context.Background())
 
 	// Initialize repository
 	contentRepo := repository.NewContentRepository(db)
 
+	// Initialize Redis
+	redisClient := cache.NewRedisClient(
+		cfg.Redis.Host+":"+cfg.Redis.Port,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+		log,
+	)
+	defer redisClient.Close()
+
 	// Initialize service
-	contentService := service.NewContentService(contentRepo)
+	contentService := service.NewContentService(contentRepo, redisClient)
 
 	// Initialize handlers
 	contentHandler := contentHandler.NewContentHandler(contentService, log)
@@ -64,14 +75,14 @@ func main() {
 	// Content routes - Issue #13: Routes updated to match requirements
 	api := router.Group("/content")
 	{
-		api.GET("/:id", contentHandler.GetContentByID)                     // GET /content/{id}
-		api.GET("/search", contentHandler.SearchContent)                  // GET /content/search
-		api.GET("/categories", contentHandler.GetCategories)               // GET /content/categories
-		api.GET("/trending", contentHandler.GetTrending)                   // GET /content/trending
-		api.POST("/:id/ratings", contentHandler.RateContent)              // POST /content/{id}/ratings
-		api.GET("/:id/ratings", contentHandler.GetRatings)                 // GET /content/{id}/ratings
-		api.GET("/:id/similar", contentHandler.GetSimilar)                 // GET /content/{id}/similar
-		api.GET("/:id/entitlements", contentHandler.GetEntitlements)       // GET /content/{id}/entitlements
+		api.GET("/:id", contentHandler.GetContentByID)               // GET /content/{id}
+		api.GET("/search", contentHandler.SearchContent)             // GET /content/search
+		api.GET("/categories", contentHandler.GetCategories)         // GET /content/categories
+		api.GET("/trending", contentHandler.GetTrending)             // GET /content/trending
+		api.POST("/:id/ratings", contentHandler.RateContent)         // POST /content/{id}/ratings
+		api.GET("/:id/ratings", contentHandler.GetRatings)           // GET /content/{id}/ratings
+		api.GET("/:id/similar", contentHandler.GetSimilar)           // GET /content/{id}/similar
+		api.GET("/:id/entitlements", contentHandler.GetEntitlements) // GET /content/{id}/entitlements
 		// Admin endpoints (optional for Issue #13)
 		api.POST("", middleware.AuthMiddleware(cfg.JWT.SecretKey), contentHandler.CreateContent)
 		api.PUT("/:id", middleware.AuthMiddleware(cfg.JWT.SecretKey), contentHandler.UpdateContent)
@@ -89,11 +100,11 @@ func main() {
 	// Graceful shutdown
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server", logger.Error(err))
+			log.Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
 
-	log.Info("Content service started", logger.String("address", srv.Addr))
+	log.Info("Content service started", zap.String("address", srv.Addr))
 
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
@@ -106,9 +117,8 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown", logger.Error(err))
+		log.Fatal("Server forced to shutdown", zap.Error(err))
 	}
 
 	log.Info("Server exited")
 }
-

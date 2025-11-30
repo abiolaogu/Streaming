@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/streamverse/common-go/cache"
 	"github.com/streamverse/common-go/config"
 	"github.com/streamverse/common-go/database"
 	"github.com/streamverse/common-go/logger"
 	"github.com/streamverse/common-go/middleware"
+	streamingHandler "github.com/streamverse/streaming-service/handlers"
 	"github.com/streamverse/streaming-service/internal/clients/content"
 	"github.com/streamverse/streaming-service/internal/clients/payment"
-	streamingHandler "github.com/streamverse/streaming-service/handlers"
 	"github.com/streamverse/streaming-service/repository"
 	"github.com/streamverse/streaming-service/service"
 )
@@ -58,11 +59,21 @@ func main() {
 	}
 	defer paymentClient.Close()
 
+	// Initialize Redis
+	redisClient := cache.NewRedisClient(
+		cfg.Redis.Host+":"+cfg.Redis.Port,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+		log,
+	)
+	defer redisClient.Close()
+
 	// Initialize service
 	streamingService := service.NewStreamingService(
 		streamingRepo,
 		contentClient,
 		paymentClient,
+		redisClient,
 		cfg.JWT.SecretKey,
 	)
 

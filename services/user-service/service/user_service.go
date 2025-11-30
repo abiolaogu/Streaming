@@ -3,32 +3,60 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/streamverse/common-go/cache"
 	"github.com/streamverse/user-service/models"
 	"github.com/streamverse/user-service/repository"
 )
 
 // UserService handles user profile business logic
 type UserService struct {
-	repo *repository.UserRepository
+	repo  *repository.UserRepository
+	cache *cache.RedisClient
 }
 
 // NewUserService creates a new user service
-func NewUserService(repo *repository.UserRepository) *UserService {
+func NewUserService(repo *repository.UserRepository, cache *cache.RedisClient) *UserService {
 	return &UserService{
-		repo: repo,
+		repo:  repo,
+		cache: cache,
 	}
 }
 
 // GetProfile retrieves user profile
 func (s *UserService) GetProfile(ctx context.Context, userID string) (*models.UserProfile, error) {
-	return s.repo.GetProfile(ctx, userID)
+	// Try cache first
+	cacheKey := fmt.Sprintf("user:profile:%s", userID)
+	var profile models.UserProfile
+	if err := s.cache.Get(ctx, cacheKey, &profile); err == nil {
+		return &profile, nil
+	}
+
+	// Cache miss - query DB
+	p, err := s.repo.GetProfile(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache result (TTL: 1 hour)
+	if err := s.cache.Set(ctx, cacheKey, p, time.Hour); err != nil {
+		// Log error but don't fail request
+		// s.log.Error("Failed to cache profile", zap.Error(err))
+	}
+
+	return p, nil
 }
 
 // UpdateProfile updates user profile
 func (s *UserService) UpdateProfile(ctx context.Context, userID string, profile *models.UserProfile) error {
 	profile.UserID = userID
-	return s.repo.UpdateProfile(ctx, userID, profile)
+	if err := s.repo.UpdateProfile(ctx, userID, profile); err != nil {
+		return err
+	}
+
+	// Invalidate cache
+	return s.cache.Del(ctx, fmt.Sprintf("user:profile:%s", userID))
 }
 
 // GetPreferences retrieves user preferences
@@ -124,4 +152,3 @@ func (s *UserService) DeregisterDevice(ctx context.Context, userID, deviceID str
 func (s *UserService) ExportUserData(ctx context.Context, userID string) (*models.UserDataExport, error) {
 	return s.repo.ExportUserData(ctx, userID)
 }
-

@@ -5,20 +5,23 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/streamverse/common-go/cache"
+	content_proto "github.com/streamverse/proto/gen/go/content"
 	"github.com/streamverse/streaming-service/internal/clients/content"
 	"github.com/streamverse/streaming-service/internal/clients/payment"
 	"github.com/streamverse/streaming-service/models"
 	"github.com/streamverse/streaming-service/repository"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // StreamingService handles streaming business logic
 type StreamingService struct {
-	repo             *repository.StreamingRepository
-	contentClient    *content.Client
-	paymentClient    *payment.Client
-	jwtSecret        string
+	repo          *repository.StreamingRepository
+	contentClient *content.Client
+	paymentClient *payment.Client
+	cache         *cache.RedisClient
+	jwtSecret     string
 }
 
 // NewStreamingService creates a new streaming service
@@ -26,13 +29,15 @@ func NewStreamingService(
 	repo *repository.StreamingRepository,
 	contentClient *content.Client,
 	paymentClient *payment.Client,
+	cache *cache.RedisClient,
 	jwtSecret string,
 ) *StreamingService {
 	return &StreamingService{
-		repo:             repo,
-		contentClient:    contentClient,
-		paymentClient:    paymentClient,
-		jwtSecret:        jwtSecret,
+		repo:          repo,
+		contentClient: contentClient,
+		paymentClient: paymentClient,
+		cache:         cache,
+		jwtSecret:     jwtSecret,
 	}
 }
 
@@ -91,8 +96,15 @@ func (s *StreamingService) ValidateToken(ctx context.Context, tokenString string
 
 // GenerateHLSManifest generates an HLS manifest
 func (s *StreamingService) GenerateHLSManifest(ctx context.Context, contentID, userID string) (string, error) {
+	// Try cache first
+	cacheKey := fmt.Sprintf("manifest:hls:%s:%s", contentID, userID)
+	var manifest string
+	if err := s.cache.Get(ctx, cacheKey, &manifest); err == nil {
+		return manifest, nil
+	}
+
 	// Get content metadata
-	content, err := s.contentClient.GetContent(ctx, contentID)
+	_, err := s.contentClient.GetContent(ctx, contentID)
 	if err != nil {
 		return "", fmt.Errorf("content not found: %w", err)
 	}
@@ -102,7 +114,7 @@ func (s *StreamingService) GenerateHLSManifest(ctx context.Context, contentID, u
 	selectedProfile := s.SelectABRProfile(ctx, userID, deviceType)
 
 	// Generate HLS manifest
-	manifest := fmt.Sprintf(`#EXTM3U
+	manifest = fmt.Sprintf(`#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-TARGETDURATION:6
 #EXTINF:6.0,
@@ -110,13 +122,25 @@ func (s *StreamingService) GenerateHLSManifest(ctx context.Context, contentID, u
 #EXT-X-ENDLIST
 `, s.getCDNBaseURL(), selectedProfile, 0)
 
+	// Cache result (TTL: 5 minutes)
+	if err := s.cache.Set(ctx, cacheKey, manifest, 5*time.Minute); err != nil {
+		// Log error
+	}
+
 	return manifest, nil
 }
 
 // GenerateDASHManifest generates a DASH manifest
 func (s *StreamingService) GenerateDASHManifest(ctx context.Context, contentID, userID string) (string, error) {
+	// Try cache first
+	cacheKey := fmt.Sprintf("manifest:dash:%s:%s", contentID, userID)
+	var manifest string
+	if err := s.cache.Get(ctx, cacheKey, &manifest); err == nil {
+		return manifest, nil
+	}
+
 	// Get content metadata
-	content, err := s.contentClient.GetContent(ctx, contentID)
+	_, err := s.contentClient.GetContent(ctx, contentID)
 	if err != nil {
 		return "", fmt.Errorf("content not found: %w", err)
 	}
@@ -126,7 +150,7 @@ func (s *StreamingService) GenerateDASHManifest(ctx context.Context, contentID, 
 	selectedProfile := s.SelectABRProfile(ctx, userID, deviceType)
 
 	// Generate DASH manifest XML (simplified)
-	manifest := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+	manifest = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT0H0M0S">
   <Period>
     <AdaptationSet>
@@ -137,13 +161,18 @@ func (s *StreamingService) GenerateDASHManifest(ctx context.Context, contentID, 
   </Period>
 </MPD>`, selectedProfile, s.getCDNBaseURL(), selectedProfile)
 
+	// Cache result (TTL: 5 minutes)
+	if err := s.cache.Set(ctx, cacheKey, manifest, 5*time.Minute); err != nil {
+		// Log error
+	}
+
 	return manifest, nil
 }
 
 // SelectABRProfile selects ABR profile based on device and network
 func (s *StreamingService) SelectABRProfile(ctx context.Context, userID, deviceType string) string {
 	// Bitrate ladder: 240p (512k), 360p (1.5M), 480p (2.5M), 720p (5M), 1080p (8M), 4K (15M)
-	
+
 	// Detect device type and select initial profile
 	switch deviceType {
 	case "mobile":
@@ -157,7 +186,7 @@ func (s *StreamingService) SelectABRProfile(ctx context.Context, userID, deviceT
 	default:
 		return "480p" // 2.5M default
 	}
-	
+
 	// TODO: Estimate bandwidth from previous QoE events
 	// TODO: Adapt based on buffer level and rebuffer events
 }
@@ -303,16 +332,16 @@ func (s *StreamingService) checkGeoRestrictions(ctx context.Context, contentID, 
 	return nil
 }
 
-func (s *StreamingService) getDRMInfo(content *content.GetContentResponse, format string) *models.DRMInfo {
+func (s *StreamingService) getDRMInfo(content *content_proto.GetContentResponse, format string) *models.DRMInfo {
 	drmType := getDRMType(content, format)
 	return &models.DRMInfo{
-		Type:        drmType,
-		LicenseURL:  fmt.Sprintf("https://drm.streamverse.com/license/%s", drmType),
+		Type:           drmType,
+		LicenseURL:     fmt.Sprintf("https://drm.streamverse.com/license/%s", drmType),
 		CertificateURL: getCertificateURL(drmType),
 	}
 }
 
-func getDRMType(content *content.GetContentResponse, format string) string {
+func getDRMType(content *content_proto.GetContentResponse, format string) string {
 	if format == "dash" {
 		return "widevine"
 	}
