@@ -141,13 +141,12 @@ func (r *TranscodingRepository) ListJobs(ctx context.Context, status string, pag
 	skip := int64((page - 1) * pageSize)
 	limit := int64(pageSize)
 
-	opts := mongo.FindOptions{
-		Skip:  &skip,
-		Limit: &limit,
-		Sort:  bson.D{{Key: "created_at", Value: -1}},
-	}
+	opts := options.Find().
+		SetSkip(skip).
+		SetLimit(limit).
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
 
-	cursor, err := r.jobCollection.Find(ctx, filter, &opts)
+	cursor, err := r.jobCollection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, 0, err
 	}

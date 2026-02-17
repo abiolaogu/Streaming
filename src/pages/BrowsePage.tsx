@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/services/api'
 import type { Content } from '@/types'
+import type { Page } from '@/types/navigation'
 import NavBar from '@/components/NavBar'
 import './BrowsePage.css'
 
 interface BrowsePageProps {
   onWatchContent: (contentId: string) => void
-  onNavigate: (page: string) => void
+  onNavigate: (page: Page) => void
   onLogout: () => void
 }
 
@@ -16,28 +17,16 @@ export default function BrowsePage({ onWatchContent, onNavigate, onLogout }: Bro
   const [trending, setTrending] = useState<Content[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    loadTrending()
-  }, [])
-
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      handleSearch()
-    } else {
-      setSearchResults([])
-    }
-  }, [searchQuery])
-
-  const loadTrending = async () => {
+  const loadTrending = useCallback(async () => {
     try {
       const data = await api.getTrending()
       setTrending(data)
     } catch (error) {
       console.error('Failed to load trending:', error)
     }
-  }
+  }, [])
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return
 
     setLoading(true)
@@ -49,7 +38,19 @@ export default function BrowsePage({ onWatchContent, onNavigate, onLogout }: Bro
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchQuery])
+
+  useEffect(() => {
+    loadTrending()
+  }, [loadTrending])
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      handleSearch()
+    } else {
+      setSearchResults([])
+    }
+  }, [searchQuery, handleSearch])
 
   const displayContent = searchQuery.trim() ? searchResults : trending
 

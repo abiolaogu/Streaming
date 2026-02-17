@@ -5,8 +5,7 @@ import WatchPage from './pages/WatchPage'
 import BrowsePage from './pages/BrowsePage'
 import ProfilesPage from './pages/ProfilesPage'
 import { api } from './services/api'
-
-type Page = 'home' | 'login' | 'watch' | 'browse' | 'profiles'
+import type { Page } from './types/navigation'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('login')

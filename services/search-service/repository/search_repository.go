@@ -1,5 +1,7 @@
 package repository
 
+import "context"
+
 // SearchRepository wraps Elasticsearch operations
 type SearchRepository struct {
 	client *ElasticsearchClient
@@ -31,4 +33,3 @@ func (r *SearchRepository) Autocomplete(ctx context.Context, query string) ([]st
 func (r *SearchRepository) DeleteContent(ctx context.Context, id string) error {
 	return r.client.DeleteContent(ctx, id)
 }
-

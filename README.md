@@ -233,6 +233,7 @@ Each TV platform has its own setup. See platform-specific README:
 - **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** - Production deployment
 - **[API Documentation](docs/api/)** - REST & gRPC API references
 - **[Runbooks](docs/runbooks/)** - Operational procedures
+- **[AIDD Review & Gap Analysis](docs/AIDD_REVIEW_GAP_ANALYSIS.md)** - Architecture, implementation, DevSecOps, and distribution baseline
 
 ### Service Documentation
 - [Auth Service](services/auth-service/README.md)
@@ -297,10 +298,15 @@ See **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** for detailed instructions.
 ## 🧪 Testing
 
 ```bash
-# Unit tests
-npm test                    # Frontend
-go test ./...               # Backend Go services
-pytest tests/              # Python services
+# Full monorepo validation (AIDD guardrail)
+./scripts/ci/validate-monorepo.sh all
+
+# Targeted validation
+./scripts/ci/validate-monorepo.sh go
+./scripts/ci/validate-monorepo.sh web
+./scripts/ci/validate-monorepo.sh node
+./scripts/ci/validate-monorepo.sh python
+./scripts/ci/validate-monorepo.sh security
 
 # Integration tests
 npm run test:integration

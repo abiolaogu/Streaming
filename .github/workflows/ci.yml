@@ -2,40 +2,137 @@ name: StreamVerse CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+concurrency:
+  group: streamverse-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  discover-go-modules:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.discover.outputs.modules }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Discover Go Modules
+        id: discover
+        run: |
+          modules_json=$(python3 - <<'PY'
+          import json
+          import pathlib
+
+          modules = sorted(
+              str(path.parent)
+              for path in pathlib.Path(".").rglob("go.mod")
+              if ".git" not in path.parts
+          )
+
+          print(json.dumps(modules))
+          PY
+          )
+          echo "modules=${modules_json}" >> "$GITHUB_OUTPUT"
+
+  go-modules:
+    needs: discover-go-modules
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover-go-modules.outputs.modules) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.sum
+
+      - name: Test Module
+        run: |
+          cd "${{ matrix.module }}"
+          go test ./...
+
+  web-client:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
 
-    - name: Install dependencies
-      run: |
-        go mod download
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
+      - name: Install Dependencies
+        run: npm ci
 
-    - name: Build Services
-      run: |
-        go build -v ./services/user-service/...
-        go build -v ./services/content-service/...
-        go build -v ./services/streaming-service/...
+      - name: Run Web Checks
+        run: npm run check
 
-    - name: Run Unit Tests
-      run: go test -v ./...
+      - name: Security Audit
+        run: npm audit --audit-level=high
 
-    - name: Run Security Scan
-      run: gosec ./...
+  node-services:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/notification-service
+          - services/websocket-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Build Docker Images
-      run: |
-        docker build -t streamverse/user-service:latest -f services/user-service/Dockerfile .
-        docker build -t streamverse/content-service:latest -f services/content-service/Dockerfile .
-        docker build -t streamverse/streaming-service:latest -f services/streaming-service/Dockerfile .
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Service
+        run: |
+          cd "${{ matrix.service }}"
+          npm install --no-audit --no-fund
+          npm run lint --if-present
+          npm run test --if-present
+
+  python-services:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/analytics-service
+          - services/recommendation-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate Python Service
+        run: |
+          pip install -r "${{ matrix.service }}/requirements.txt"
+          python -m compileall -q "${{ matrix.service }}"
+
+  security-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Insecure Defaults
+        run: ./scripts/ci/check-no-insecure-defaults.sh

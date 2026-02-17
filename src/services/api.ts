@@ -1,4 +1,4 @@
-import type { User, Content, AuthResponse, Profile, WatchProgress } from '@/types'
+import type { Content, AuthResponse, Profile, WatchProgress } from '@/types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -10,13 +10,11 @@ class ApiService {
   }
 
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    }
+    const headers = new Headers(options.headers)
+    headers.set('Content-Type', 'application/json')
 
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`
+      headers.set('Authorization', `Bearer ${this.token}`)
     }
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {

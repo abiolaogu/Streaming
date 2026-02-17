@@ -52,16 +52,16 @@ func (c *ElasticsearchClient) CreateIndex() error {
 	mapping := map[string]interface{}{
 		"mappings": map[string]interface{}{
 			"properties": map[string]interface{}{
-				"id":          {"type": "keyword"},
-				"title":       {"type": "text", "analyzer": "standard"},
-				"description": {"type": "text", "analyzer": "standard"},
-				"genre":       {"type": "keyword"},
-				"category":    {"type": "keyword"},
-				"cast":        {"type": "keyword"},
-				"directors":   {"type": "keyword"},
-				"tags":        {"type": "keyword"},
-				"release_year": {"type": "integer"},
-				"rating":      {"type": "float"},
+				"id":           map[string]interface{}{"type": "keyword"},
+				"title":        map[string]interface{}{"type": "text", "analyzer": "standard"},
+				"description":  map[string]interface{}{"type": "text", "analyzer": "standard"},
+				"genre":        map[string]interface{}{"type": "keyword"},
+				"category":     map[string]interface{}{"type": "keyword"},
+				"cast":         map[string]interface{}{"type": "keyword"},
+				"directors":    map[string]interface{}{"type": "keyword"},
+				"tags":         map[string]interface{}{"type": "keyword"},
+				"release_year": map[string]interface{}{"type": "integer"},
+				"rating":       map[string]interface{}{"type": "float"},
 			},
 		},
 	}
@@ -251,4 +251,3 @@ func (c *ElasticsearchClient) DeleteContent(ctx context.Context, id string) erro
 func (c *ElasticsearchClient) GetClient() *elasticsearch.Client {
 	return c.client
 }
-

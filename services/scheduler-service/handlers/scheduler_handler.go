@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/streamverse/common-go/errors"
@@ -129,4 +128,3 @@ func (h *SchedulerHandler) GetCurrentScheduleEntry(c *gin.Context) {
 
 	c.JSON(http.StatusOK, entry)
 }
-

@@ -56,3 +56,12 @@ func (l *Logger) WithError(err error) *Logger {
 	return l.WithFields(zap.Error(err))
 }
 
+// Error exposes a common helper used by service code to attach errors in logs.
+func Error(err error) zap.Field {
+	return zap.Error(err)
+}
+
+// String exposes a common helper used by service code to attach string fields.
+func String(key, val string) zap.Field {
+	return zap.String(key, val)
+}

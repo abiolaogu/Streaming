@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	// Default secret key (should be set via config)
-	DefaultSecretKey = "your-secret-key-change-in-production"
+	// Default secret key for local development only.
+	DefaultSecretKey = "dev-only-secret-change-me"
 	// Default access token expiration
 	DefaultAccessTokenExpiration = 15 * time.Minute
 	// Default refresh token expiration
@@ -91,4 +91,3 @@ func VerifyToken(tokenString, secretKey string) (*Claims, error) {
 
 	return nil, jwt.ErrInvalidKey
 }
-

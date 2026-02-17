@@ -1,18 +1,24 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
+const insecureDefaultJWTSecret = "dev-only-change-me"
+
 // Config holds application configuration
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	Logging  LoggingConfig
+	Server             ServerConfig
+	Database           DatabaseConfig
+	Redis              RedisConfig
+	JWT                JWTConfig
+	Logging            LoggingConfig
+	ContentServiceAddr string
+	PaymentServiceAddr string
 }
 
 // ServerConfig holds server configuration
@@ -55,7 +61,7 @@ type LoggingConfig struct {
 
 // Load loads configuration from environment variables
 func Load() *Config {
-	return &Config{
+	cfg := &Config{
 		Server: ServerConfig{
 			Port:         getEnv("SERVER_PORT", "8080"),
 			Host:         getEnv("SERVER_HOST", "0.0.0.0"),
@@ -76,7 +82,7 @@ func Load() *Config {
 			DB:       getIntEnv("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
-			SecretKey:              getEnv("JWT_SECRET_KEY", "your-secret-key"),
+			SecretKey:              getEnv("JWT_SECRET_KEY", insecureDefaultJWTSecret),
 			AccessTokenExpiration:  getDurationEnv("JWT_ACCESS_TOKEN_EXPIRATION", 15*time.Minute),
 			RefreshTokenExpiration: getDurationEnv("JWT_REFRESH_TOKEN_EXPIRATION", 7*24*time.Hour),
 		},
@@ -84,7 +90,33 @@ func Load() *Config {
 			Level:       getEnv("LOG_LEVEL", "info"),
 			Development: getBoolEnv("LOG_DEVELOPMENT", false),
 		},
+		ContentServiceAddr: getEnv("CONTENT_SERVICE_ADDR", "localhost:50052"),
+		PaymentServiceAddr: getEnv("PAYMENT_SERVICE_ADDR", "localhost:50053"),
 	}
+
+	if err := cfg.validate(); err != nil {
+		panic(err)
+	}
+
+	return cfg
+}
+
+func (c *Config) validate() error {
+	environment := strings.ToLower(strings.TrimSpace(getEnv("ENVIRONMENT", getEnv("APP_ENV", "development"))))
+	isProduction := environment == "production" || environment == "prod"
+	if !isProduction {
+		return nil
+	}
+
+	if c.JWT.SecretKey == "" || c.JWT.SecretKey == insecureDefaultJWTSecret {
+		return fmt.Errorf("JWT_SECRET_KEY must be configured in production")
+	}
+
+	if len(c.JWT.SecretKey) < 32 {
+		return fmt.Errorf("JWT_SECRET_KEY must be at least 32 characters in production")
+	}
+
+	return nil
 }
 
 func getEnv(key, defaultValue string) string {
@@ -129,4 +161,3 @@ func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
 	}
 	return defaultValue
 }
-

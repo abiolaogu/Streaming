@@ -133,7 +133,9 @@ func (r *AdminRepository) ListUsers(ctx context.Context, filters map[string]inte
 		filter["status"] = status
 	}
 	if role, ok := filters["role"]; ok {
-		filter["roles"] = bson.M{"$in": []string{role}}
+		if roleStr, isString := role.(string); isString && roleStr != "" {
+			filter["roles"] = bson.M{"$in": []string{roleStr}}
+		}
 	}
 	if email, ok := filters["email"]; ok {
 		filter["email"] = bson.M{"$regex": email, "$options": "i"}
@@ -258,4 +260,3 @@ func (r *AdminRepository) DeleteContent(ctx context.Context, contentID string) e
 	_, err = r.contentCollection.DeleteOne(ctx, bson.M{"_id": objectID})
 	return err
 }
-

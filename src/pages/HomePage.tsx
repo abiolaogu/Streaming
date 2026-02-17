@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/services/api'
 import type { Content } from '@/types'
+import type { Page } from '@/types/navigation'
 import NavBar from '@/components/NavBar'
 import HeroBanner from '@/components/HeroBanner'
 import ContentRow from '@/components/ContentRow'
@@ -8,7 +9,7 @@ import './HomePage.css'
 
 interface HomePageProps {
   onWatchContent: (contentId: string) => void
-  onNavigate: (page: string) => void
+  onNavigate: (page: Page) => void
   onLogout: () => void
 }
 

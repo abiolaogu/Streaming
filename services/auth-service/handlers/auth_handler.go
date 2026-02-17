@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/streamverse/common-go/errors"
 	"github.com/streamverse/common-go/logger"
-	"github.com/streamverse/auth-service/models"
 	"github.com/streamverse/auth-service/service"
 )
 
@@ -334,4 +333,3 @@ func (h *AuthHandler) OAuthApple(c *gin.Context) {
 	// TODO: Verify Apple ID token and create/login user
 	c.JSON(http.StatusNotImplemented, gin.H{"message": "OAuth2.0 Apple integration - TODO"})
 }
-

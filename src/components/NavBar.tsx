@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import type { Page } from '@/types/navigation'
 import './NavBar.css'
 
 interface NavBarProps {
-  onNavigate: (page: string) => void
+  onNavigate: (page: Page) => void
   onLogout: () => void
 }
 
