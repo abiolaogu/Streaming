@@ -21,9 +21,10 @@ type paymentRepository interface {
 	UpsertStripeLink(ctx context.Context, userID, customerID, subscriptionID string) error
 	ResolveUserIDByStripeIDs(ctx context.Context, customerID, subscriptionID string) (string, error)
 	GetActivePurchasesByUserID(ctx context.Context, userID string) ([]models.Purchase, error)
-	BeginWebhookEvent(ctx context.Context, eventID, eventType, payloadHash string) (bool, error)
+	BeginWebhookEvent(ctx context.Context, eventID, eventType, payloadHash string, eventObject map[string]interface{}) (bool, error)
 	MarkWebhookEventProcessed(ctx context.Context, eventID string) error
 	MarkWebhookEventFailed(ctx context.Context, eventID, lastError string) error
+	ListFailedWebhookEvents(ctx context.Context, limit int) ([]models.WebhookEvent, error)
 }
 
 // PaymentService handles payment business logic
@@ -152,7 +153,7 @@ func (s *PaymentService) ProcessStripeWebhook(ctx context.Context, eventID, even
 		return fmt.Errorf("stripe webhook event id is required")
 	}
 
-	shouldProcess, err := s.repo.BeginWebhookEvent(ctx, eventID, eventType, payloadHash)
+	shouldProcess, err := s.repo.BeginWebhookEvent(ctx, eventID, eventType, payloadHash, object)
 	if err != nil {
 		return err
 	}
@@ -169,6 +170,27 @@ func (s *PaymentService) ProcessStripeWebhook(ctx context.Context, eventID, even
 	}
 
 	return s.repo.MarkWebhookEventProcessed(ctx, eventID)
+}
+
+// ReplayFailedWebhookEvents retries previously failed webhook events.
+func (s *PaymentService) ReplayFailedWebhookEvents(ctx context.Context, limit int) (int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	failedEvents, err := s.repo.ListFailedWebhookEvents(ctx, limit)
+	if err != nil {
+		return 0, err
+	}
+
+	replayed := 0
+	for _, event := range failedEvents {
+		if err := s.ProcessStripeWebhook(ctx, event.EventID, event.EventType, event.EventObject, event.PayloadHash); err == nil {
+			replayed++
+		}
+	}
+
+	return replayed, nil
 }
 
 func (s *PaymentService) applyStripeWebhook(ctx context.Context, eventType string, object map[string]interface{}) error {

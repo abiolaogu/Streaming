@@ -5,16 +5,16 @@
 }
 
 :root {
-  --netflix-red: #E50914;
+  --netflix-red: #e50914;
   --netflix-black: #141414;
   --netflix-dark: #000000;
   --netflix-gray: #808080;
-  --netflix-light-gray: #E5E5E5;
+  --netflix-light-gray: #e5e5e5;
 }
 
 body {
   margin: 0;
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   background-color: var(--netflix-black);
   color: #fff;
   overflow-x: hidden;

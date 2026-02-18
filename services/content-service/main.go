@@ -58,9 +58,14 @@ func main() {
 
 	paymentServiceURL := os.Getenv("PAYMENT_SERVICE_URL")
 	entitlementClient := service.NewPaymentEntitlementsClient(paymentServiceURL)
+	policyServiceURL := os.Getenv("POLICY_SERVICE_URL")
+	var policyClient service.EntitlementPolicyProvider
+	if policyServiceURL != "" {
+		policyClient = service.NewEntitlementPolicyClient(policyServiceURL)
+	}
 
 	// Initialize service
-	contentService := service.NewContentService(contentRepo, redisClient, entitlementClient)
+	contentService := service.NewContentService(contentRepo, redisClient, entitlementClient, policyClient)
 
 	// Initialize handlers
 	contentHandler := contentHandler.NewContentHandler(contentService, log)

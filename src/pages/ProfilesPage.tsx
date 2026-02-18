@@ -1,51 +1,51 @@
-import { useState, useEffect } from 'react'
-import { api } from '@/services/api'
-import type { Profile } from '@/types'
-import './ProfilesPage.css'
+import { useEffect, useState } from "react";
+import { api } from "@/services/api";
+import type { Profile } from "@/types";
+import "./ProfilesPage.css";
 
 interface ProfilesPageProps {
-  onSelectProfile: () => void
+  onSelectProfile: () => void;
 }
 
 export default function ProfilesPage({ onSelectProfile }: ProfilesPageProps) {
-  const [profiles, setProfiles] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showAddProfile, setShowAddProfile] = useState(false)
-  const [newProfileName, setNewProfileName] = useState('')
-  const [isKidsProfile, setIsKidsProfile] = useState(false)
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddProfile, setShowAddProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [isKidsProfile, setIsKidsProfile] = useState(false);
 
   useEffect(() => {
-    loadProfiles()
-  }, [])
+    loadProfiles();
+  }, []);
 
   const loadProfiles = async () => {
     try {
-      const data = await api.getProfiles()
-      setProfiles(data)
+      const data = await api.getProfiles();
+      setProfiles(data);
     } catch (error) {
-      console.error('Failed to load profiles:', error)
+      console.error("Failed to load profiles:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCreateProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newProfileName.trim()) return
+    e.preventDefault();
+    if (!newProfileName.trim()) return;
 
     try {
-      const newProfile = await api.createProfile(newProfileName, isKidsProfile)
-      setProfiles([...profiles, newProfile])
-      setNewProfileName('')
-      setIsKidsProfile(false)
-      setShowAddProfile(false)
+      const newProfile = await api.createProfile(newProfileName, isKidsProfile);
+      setProfiles([...profiles, newProfile]);
+      setNewProfileName("");
+      setIsKidsProfile(false);
+      setShowAddProfile(false);
     } catch (error) {
-      console.error('Failed to create profile:', error)
+      console.error("Failed to create profile:", error);
     }
-  }
+  };
 
   if (loading) {
-    return <div className="loading">Loading profiles...</div>
+    return <div className="loading">Loading profiles...</div>;
   }
 
   return (
@@ -110,9 +110,9 @@ export default function ProfilesPage({ onSelectProfile }: ProfilesPageProps) {
                   type="button"
                   className="cancel-button"
                   onClick={() => {
-                    setShowAddProfile(false)
-                    setNewProfileName('')
-                    setIsKidsProfile(false)
+                    setShowAddProfile(false);
+                    setNewProfileName("");
+                    setIsKidsProfile(false);
                   }}
                 >
                   Cancel
@@ -123,5 +123,5 @@ export default function ProfilesPage({ onSelectProfile }: ProfilesPageProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

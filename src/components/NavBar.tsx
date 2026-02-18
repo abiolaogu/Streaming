@@ -1,25 +1,25 @@
-import { useState } from 'react'
-import type { Page } from '@/types/navigation'
-import './NavBar.css'
+import { useState } from "react";
+import type { Page } from "@/types/navigation";
+import "./NavBar.css";
 
 interface NavBarProps {
-  onNavigate: (page: Page) => void
-  onLogout: () => void
+  onNavigate: (page: Page) => void;
+  onLogout: () => void;
 }
 
 export default function NavBar({ onNavigate, onLogout }: NavBarProps) {
-  const [showMenu, setShowMenu] = useState(false)
+  const [showMenu, setShowMenu] = useState(false);
 
   return (
     <nav className="navbar">
       <div className="navbar-left">
-        <h1 className="logo" onClick={() => onNavigate('home')}>
+        <h1 className="logo" onClick={() => onNavigate("home")}>
           STREAMVERSE
         </h1>
 
         <div className="nav-links">
-          <button onClick={() => onNavigate('home')}>Home</button>
-          <button onClick={() => onNavigate('browse')}>Browse</button>
+          <button onClick={() => onNavigate("home")}>Home</button>
+          <button onClick={() => onNavigate("browse")}>Browse</button>
         </div>
       </div>
 
@@ -34,7 +34,7 @@ export default function NavBar({ onNavigate, onLogout }: NavBarProps) {
 
           {showMenu && (
             <div className="dropdown-menu">
-              <button onClick={() => onNavigate('profiles')}>
+              <button onClick={() => onNavigate("profiles")}>
                 Switch Profile
               </button>
               <button onClick={onLogout}>Sign Out</button>
@@ -43,5 +43,5 @@ export default function NavBar({ onNavigate, onLogout }: NavBarProps) {
         </div>
       </div>
     </nav>
-  )
+  );
 }

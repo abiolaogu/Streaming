@@ -1,37 +1,37 @@
-import { useState } from 'react'
-import { api } from '@/services/api'
-import './LoginPage.css'
+import { useState } from "react";
+import { api } from "@/services/api";
+import "./LoginPage.css";
 
 interface LoginPageProps {
-  onLogin: () => void
+  onLogin: () => void;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [username, setUsername] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
       if (isSignUp) {
-        await api.register(email, password, username)
+        await api.register(email, password, username);
       } else {
-        await api.login(email, password)
+        await api.login(email, password);
       }
-      onLogin()
+      onLogin();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed')
+      setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="login-page">
@@ -41,7 +41,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
       <div className="login-content">
         <div className="login-form-container">
-          <h2>{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
+          <h2>{isSignUp ? "Sign Up" : "Sign In"}</h2>
 
           <form onSubmit={handleSubmit}>
             {isSignUp && (
@@ -74,16 +74,19 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             {error && <div className="error-message">{error}</div>}
 
             <button type="submit" disabled={loading} className="submit-button">
-              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+              {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
             </button>
           </form>
 
           <div className="form-switch">
             <span>
-              {isSignUp ? 'Already have an account?' : 'New to StreamVerse?'}
+              {isSignUp ? "Already have an account?" : "New to StreamVerse?"}
             </span>
-            <button onClick={() => setIsSignUp(!isSignUp)} className="switch-button">
-              {isSignUp ? 'Sign in now' : 'Sign up now'}
+            <button
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="switch-button"
+            >
+              {isSignUp ? "Sign in now" : "Sign up now"}
             </button>
           </div>
         </div>
@@ -93,5 +96,5 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         <p>&copy; 2025 StreamVerse. All rights reserved.</p>
       </div>
     </div>
-  )
+  );
 }

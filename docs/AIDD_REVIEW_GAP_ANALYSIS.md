@@ -140,10 +140,14 @@ Implemented in this continuation pass:
 12. Incrementally raised enforced coverage thresholds for auth/content/payment modules and onboarded auth-service into required contract-test gates.
 13. Added contract tests for auth OAuth account-linking paths and raised thresholds again to `auth>=3%`, `content>=7%`, `payment>=12%`.
 14. Added negative-path auth OAuth contract tests for verifier/provider failure mapping and raised thresholds to `auth>=5%`, `content>=10%`, `payment>=15%`.
+15. Introduced dedicated `policy-service` entitlement boundary with versioned policy contracts (`/policy/v1/entitlements/evaluate`) and contract tests.
+16. Wired content-service entitlement decisions to policy-service while keeping payment-service as entitlement data source.
+17. Added payment-service webhook reconciliation worker wiring for replay of failed Stripe webhook events with residency-aware region controls.
+18. Raised enforced coverage thresholds again to `auth>=8%`, `content>=12%`, `payment>=20%` and expanded service tests to meet gates.
+19. Added explicit multi-region active/active + residency runbook and runtime env controls.
+20. Remediated moderate web dependency audit findings by replacing vulnerable lint dependency chain.
 
 Outstanding after continuation:
 
-1. OAuth onboarding enrichment is still minimal (e.g., profile completion flows and account-link UX).
-2. Stripe reconciliation now supports persistent customer/subscription ID mapping, but provider-side ID lifecycle sync still needs a background reconciler.
-3. Entitlement reads now go through payment-service boundary client, but policy should move to a dedicated policy engine for richer rights expressions at scale.
-4. Additional service-level integration coverage remains required for OAuth account-linking and cross-service entitlement flows.
+1. Next-phase enhancement: migrate policy rules from static Go logic to OPA/Cedar interpreter backend while preserving contract versions.
+2. Next-phase enhancement: add regional chaos drills and automated failover game-day scoring in CI/CD.

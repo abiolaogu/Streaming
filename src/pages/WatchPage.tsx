@@ -1,52 +1,52 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { api } from '@/services/api'
-import type { Content } from '@/types'
-import './WatchPage.css'
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/services/api";
+import type { Content } from "@/types";
+import "./WatchPage.css";
 
 interface WatchPageProps {
-  contentId: string
-  onBack: () => void
+  contentId: string;
+  onBack: () => void;
 }
 
 export default function WatchPage({ contentId, onBack }: WatchPageProps) {
-  const [content, setContent] = useState<Content | null>(null)
-  const [loading, setLoading] = useState(true)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [content, setContent] = useState<Content | null>(null);
+  const [loading, setLoading] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const loadContent = useCallback(async () => {
     try {
-      const data = await api.getContent(contentId)
-      setContent(data)
+      const data = await api.getContent(contentId);
+      setContent(data);
     } catch (error) {
-      console.error('Failed to load content:', error)
+      console.error("Failed to load content:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [contentId])
+  }, [contentId]);
 
   useEffect(() => {
-    loadContent()
-  }, [loadContent])
+    loadContent();
+  }, [loadContent]);
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+    const video = videoRef.current;
+    if (!video) return;
 
     const handleTimeUpdate = () => {
-      const progress = (video.currentTime / video.duration) * 100
-      api.updateWatchProgress(contentId, progress).catch(console.error)
-    }
+      const progress = (video.currentTime / video.duration) * 100;
+      api.updateWatchProgress(contentId, progress).catch(console.error);
+    };
 
-    video.addEventListener('timeupdate', handleTimeUpdate)
-    return () => video.removeEventListener('timeupdate', handleTimeUpdate)
-  }, [contentId])
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    return () => video.removeEventListener("timeupdate", handleTimeUpdate);
+  }, [contentId]);
 
   if (loading) {
-    return <div className="loading">Loading...</div>
+    return <div className="loading">Loading...</div>;
   }
 
   if (!content) {
-    return <div className="error">Content not found</div>
+    return <div className="error">Content not found</div>;
   }
 
   return (
@@ -85,5 +85,5 @@ export default function WatchPage({ contentId, onBack }: WatchPageProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

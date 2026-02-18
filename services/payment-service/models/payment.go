@@ -72,3 +72,17 @@ type Purchase struct {
 	Status    string             `bson:"status" json:"status"`
 	CreatedAt time.Time          `bson:"created_at" json:"createdAt"`
 }
+
+// WebhookEvent stores durable state for Stripe webhook idempotency and replay.
+type WebhookEvent struct {
+	EventID     string                 `bson:"event_id" json:"eventId"`
+	EventType   string                 `bson:"event_type" json:"eventType"`
+	PayloadHash string                 `bson:"payload_hash" json:"payloadHash"`
+	EventObject map[string]interface{} `bson:"event_object,omitempty" json:"eventObject,omitempty"`
+	Status      string                 `bson:"status" json:"status"` // "processing", "processed", "failed"
+	Attempts    int                    `bson:"attempts" json:"attempts"`
+	LastError   string                 `bson:"last_error,omitempty" json:"lastError,omitempty"`
+	CreatedAt   time.Time              `bson:"created_at" json:"createdAt"`
+	UpdatedAt   time.Time              `bson:"updated_at" json:"updatedAt"`
+	ProcessedAt *time.Time             `bson:"processed_at,omitempty" json:"processedAt,omitempty"`
+}

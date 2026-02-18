@@ -9,6 +9,7 @@ Step-by-step procedures for common operations and incidents.
 3. [Incident Response](#incident-response)
 4. [Maintenance](#maintenance)
 5. [Scaling](#scaling)
+6. [Multi-Region Active/Active](MULTI_REGION_ACTIVE_ACTIVE.md)
 
 ## Deployment Procedures
 
@@ -275,4 +276,3 @@ resources:
 - **On-Call Engineer**: +1-XXX-XXX-XXXX
 - **Security Team**: security@streamverse.io
 - **DevOps Lead**: devops@streamverse.io
-
