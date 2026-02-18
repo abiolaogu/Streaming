@@ -1,0 +1,5 @@
+# module_path minimum_coverage_percent
+packages/common-go 10
+services/auth-service 5
+services/content-service 10
+services/payment-service 15

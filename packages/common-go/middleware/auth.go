@@ -56,6 +56,14 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 			c.Set("email", email)
 		}
 
+		if roles := extractRoles(claims["roles"]); len(roles) > 0 {
+			c.Set("roles", roles)
+		}
+
+		if orgID, ok := claims["org_id"].(string); ok {
+			c.Set("org_id", orgID)
+		}
+
 		c.Next()
 	}
 }
@@ -89,3 +97,31 @@ func RequireRole(requiredRole string) gin.HandlerFunc {
 	}
 }
 
+func extractRoles(raw interface{}) []string {
+	switch roles := raw.(type) {
+	case []string:
+		return roles
+	case []interface{}:
+		result := make([]string, 0, len(roles))
+		for _, role := range roles {
+			roleStr, ok := role.(string)
+			if !ok {
+				continue
+			}
+			roleStr = strings.TrimSpace(roleStr)
+			if roleStr == "" {
+				continue
+			}
+			result = append(result, roleStr)
+		}
+		return result
+	case string:
+		role := strings.TrimSpace(roles)
+		if role == "" {
+			return nil
+		}
+		return []string{role}
+	default:
+		return nil
+	}
+}

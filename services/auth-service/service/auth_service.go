@@ -5,13 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pquerna/otp/totp"
-	"github.com/streamverse/common-go/jwt"
 	"github.com/streamverse/auth-service/models"
-	"github.com/streamverse/auth-service/repository"
 	"github.com/streamverse/auth-service/utils"
+	"github.com/streamverse/common-go/jwt"
 )
 
 const (
@@ -23,25 +23,57 @@ const (
 
 // AuthService handles authentication business logic
 type AuthService struct {
-	userRepo   *repository.UserRepository
-	tokenRepo  *repository.TokenRepository
-	deviceRepo *repository.DeviceRepository
+	userRepo   authUserRepository
+	tokenRepo  authTokenRepository
+	deviceRepo authDeviceRepository
 	jwtSecret  string
+	oauth      oauthVerifier
 }
 
 // NewAuthService creates a new auth service
 func NewAuthService(
-	userRepo *repository.UserRepository,
-	tokenRepo *repository.TokenRepository,
-	deviceRepo *repository.DeviceRepository,
+	userRepo authUserRepository,
+	tokenRepo authTokenRepository,
+	deviceRepo authDeviceRepository,
 	jwtSecret string,
+	oauth oauthVerifier,
 ) *AuthService {
 	return &AuthService{
 		userRepo:   userRepo,
 		tokenRepo:  tokenRepo,
 		deviceRepo: deviceRepo,
 		jwtSecret:  jwtSecret,
+		oauth:      oauth,
 	}
+}
+
+type authUserRepository interface {
+	Create(ctx context.Context, user *models.User) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByID(ctx context.Context, id string) (*models.User, error)
+	GetByOAuthProvider(ctx context.Context, provider, subject string) (*models.User, error)
+	Update(ctx context.Context, id string, user *models.User) error
+	IncrementFailedLoginAttempts(ctx context.Context, id string) error
+	ResetFailedLoginAttempts(ctx context.Context, id string) error
+	LockAccount(ctx context.Context, id string, until time.Time) error
+}
+
+type authTokenRepository interface {
+	CreatePasswordResetToken(ctx context.Context, token *models.PasswordResetToken) error
+	GetPasswordResetToken(ctx context.Context, token string) (*models.PasswordResetToken, error)
+	MarkPasswordResetTokenUsed(ctx context.Context, token string) error
+	GetEmailVerificationToken(ctx context.Context, token string) (*models.EmailVerificationToken, error)
+	MarkEmailVerificationTokenUsed(ctx context.Context, token string) error
+}
+
+type authDeviceRepository interface {
+	CreateDevice(ctx context.Context, device *models.Device) error
+	GetDevicesByUserID(ctx context.Context, userID string) ([]models.Device, error)
+	DeleteDevice(ctx context.Context, deviceID, userID string) error
+}
+
+type oauthVerifier interface {
+	Verify(ctx context.Context, provider, token string) (*OAuthIdentity, error)
 }
 
 // Register registers a new user
@@ -99,7 +131,7 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 	// Verify password
 	if !utils.CheckPassword(password, user.PasswordHash) {
 		s.userRepo.IncrementFailedLoginAttempts(ctx, user.ID.Hex())
-		
+
 		if user.FailedLoginAttempts+1 >= maxFailedAttempts {
 			lockUntil := time.Now().Add(lockoutDuration)
 			s.userRepo.LockAccount(ctx, user.ID.Hex(), lockUntil)
@@ -129,24 +161,9 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 	s.deviceRepo.CreateDevice(ctx, device)
 
 	// Generate tokens
-	accessToken, err := jwt.GenerateAccessToken(
-		user.ID.Hex(),
-		user.Email,
-		user.Roles,
-		s.jwtSecret,
-		tokenExpiration,
-	)
+	accessToken, refreshToken, err := s.issueTokens(user)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
-	}
-
-	refreshToken, err := jwt.GenerateRefreshToken(
-		user.ID.Hex(),
-		s.jwtSecret,
-		refreshExpiration,
-	)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", nil, err
 	}
 
 	return accessToken, refreshToken, user, nil
@@ -165,24 +182,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshTokenString strin
 	}
 
 	// Generate new tokens
-	accessToken, err := jwt.GenerateAccessToken(
-		user.ID.Hex(),
-		user.Email,
-		user.Roles,
-		s.jwtSecret,
-		tokenExpiration,
-	)
+	accessToken, newRefreshToken, err := s.issueTokens(user)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate access token: %w", err)
-	}
-
-	newRefreshToken, err := jwt.GenerateRefreshToken(
-		user.ID.Hex(),
-		s.jwtSecret,
-		refreshExpiration,
-	)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", err
 	}
 
 	return accessToken, newRefreshToken, nil
@@ -319,9 +321,132 @@ func (s *AuthService) RevokeDevice(ctx context.Context, userID, deviceID string)
 	return s.deviceRepo.DeleteDevice(ctx, deviceID, userID)
 }
 
+// OAuthLogin verifies OAuth id_token and performs login/signup for provider users.
+func (s *AuthService) OAuthLogin(ctx context.Context, provider, idToken, userAgent, ipAddress string) (string, string, *models.User, error) {
+	identity, err := s.oauth.Verify(ctx, provider, idToken)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	if identity.Subject == "" {
+		return "", "", nil, fmt.Errorf("oauth subject is missing")
+	}
+
+	user, err := s.userRepo.GetByOAuthProvider(ctx, strings.ToLower(provider), identity.Subject)
+	if err != nil {
+		if identity.Email != "" {
+			existingUser, emailErr := s.userRepo.GetByEmail(ctx, identity.Email)
+			if emailErr == nil {
+				user = existingUser
+			}
+		}
+	}
+
+	if user == nil {
+		email := identity.Email
+		if email == "" {
+			email = syntheticOAuthEmail(provider, identity.Subject)
+		}
+
+		user = &models.User{
+			Email:         email,
+			PasswordHash:  "",
+			Name:          identity.Name,
+			EmailVerified: identity.EmailVerified,
+			Roles:         []string{"user"},
+			OAuthProviders: map[string]string{
+				strings.ToLower(provider): identity.Subject,
+			},
+		}
+
+		user, err = s.userRepo.Create(ctx, user)
+		if err != nil {
+			return "", "", nil, err
+		}
+	} else {
+		updated := false
+		if user.OAuthProviders == nil {
+			user.OAuthProviders = make(map[string]string)
+		}
+		if user.OAuthProviders[strings.ToLower(provider)] != identity.Subject {
+			user.OAuthProviders[strings.ToLower(provider)] = identity.Subject
+			updated = true
+		}
+		if user.Name == "" && identity.Name != "" {
+			user.Name = identity.Name
+			updated = true
+		}
+		if user.Email == "" && identity.Email != "" {
+			user.Email = identity.Email
+			updated = true
+		}
+		if identity.EmailVerified && !user.EmailVerified {
+			now := time.Now()
+			user.EmailVerified = true
+			user.EmailVerifiedAt = &now
+			updated = true
+		}
+
+		if updated {
+			if err := s.userRepo.Update(ctx, user.ID.Hex(), user); err != nil {
+				return "", "", nil, err
+			}
+		}
+	}
+
+	deviceFingerprint := utils.GenerateDeviceFingerprint(userAgent, ipAddress)
+	device := &models.Device{
+		ID:          deviceFingerprint,
+		UserID:      user.ID.Hex(),
+		Name:        userAgent,
+		Type:        "web",
+		Fingerprint: deviceFingerprint,
+		LastUsedAt:  time.Now(),
+		CreatedAt:   time.Now(),
+	}
+	s.deviceRepo.CreateDevice(ctx, device)
+
+	accessToken, refreshToken, err := s.issueTokens(user)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return accessToken, refreshToken, user, nil
+}
+
+func (s *AuthService) issueTokens(user *models.User) (string, string, error) {
+	accessToken, err := jwt.GenerateAccessToken(
+		user.ID.Hex(),
+		user.Email,
+		user.Roles,
+		s.jwtSecret,
+		tokenExpiration,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refreshToken, err := jwt.GenerateRefreshToken(
+		user.ID.Hex(),
+		s.jwtSecret,
+		refreshExpiration,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+func syntheticOAuthEmail(provider, subject string) string {
+	cleanProvider := strings.ToLower(strings.TrimSpace(provider))
+	cleanSubject := strings.ToLower(strings.TrimSpace(subject))
+	cleanSubject = strings.ReplaceAll(cleanSubject, "@", "_")
+	return fmt.Sprintf("%s+%s@oauth.streamverse.local", cleanProvider, cleanSubject)
+}
+
 func generateRandomToken() string {
 	bytes := make([]byte, 32)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
 }
-
