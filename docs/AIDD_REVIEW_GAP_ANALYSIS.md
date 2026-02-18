@@ -119,5 +119,30 @@ This review covered architecture, build/test health, security defaults, delivery
 
 1. Service-level unit/integration coverage remains low beyond baseline config tests.
 2. End-to-end workflow coverage for payments, entitlement checks, and DRM paths is still limited.
-3. Several functional TODOs remain (OAuth providers, webhook verification, recommendation depth).
+3. Several functional TODOs remain (recommendation depth, analytics ingestion, and provider-side billing reconciliation).
 4. Data governance and residency controls need explicit policy-as-code validation for global markets.
+
+## Continuation Update (2026-02-17)
+
+Implemented in this continuation pass:
+
+1. OAuth provider login flow now verifies ID tokens with OIDC discovery/JWKS for Google and Apple.
+2. Stripe webhook handling now verifies request signatures and applies subscription state updates.
+3. Entitlement checks now use subscription/purchase state from data store plus geo-blocking guardrails.
+4. Payment webhook route is now unauthenticated while payment APIs remain JWT-protected.
+5. JWT middleware now propagates `roles` and `org_id` claims so downstream authorization checks can function.
+6. Payment plan lookup now accepts `tier1/tier2/tier3` and legacy aliases (`basic/standard/pro/premium`) to avoid subscription-plan mismatches.
+7. Content-service health checks are now publicly reachable while `/content/*` remains JWT-protected.
+8. Stripe webhook processing now has durable idempotency storage (`event_id` keyed), replay-safe retries after failures, and explicit processed/failed lifecycle states.
+9. Added integration tests covering replay idempotency and failed-event retry processing paths for Stripe webhooks.
+10. Added CI-enforced Go coverage thresholds with per-module overrides (config-driven).
+11. Added CI contract-test gates for changed critical services (auth, payment, and content) with dedicated `TestContract*` suites.
+12. Incrementally raised enforced coverage thresholds for auth/content/payment modules and onboarded auth-service into required contract-test gates.
+13. Added contract tests for auth OAuth account-linking paths and raised thresholds again to `auth>=3%`, `content>=7%`, `payment>=12%`.
+
+Outstanding after continuation:
+
+1. OAuth onboarding enrichment is still minimal (e.g., profile completion flows and account-link UX).
+2. Stripe reconciliation now supports persistent customer/subscription ID mapping, but provider-side ID lifecycle sync still needs a background reconciler.
+3. Entitlement reads now go through payment-service boundary client, but policy should move to a dedicated policy engine for richer rights expressions at scale.
+4. Additional service-level integration coverage remains required for OAuth account-linking and cross-service entitlement flows.
