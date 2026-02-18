@@ -1,76 +1,78 @@
-import { useState, useEffect } from 'react'
-import HomePage from './pages/HomePage'
-import LoginPage from './pages/LoginPage'
-import WatchPage from './pages/WatchPage'
-import BrowsePage from './pages/BrowsePage'
-import ProfilesPage from './pages/ProfilesPage'
-import { api } from './services/api'
-import type { Page } from './types/navigation'
+import { useEffect, useState } from "react";
+import BrowsePage from "./pages/BrowsePage";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import ProfilesPage from "./pages/ProfilesPage";
+import WatchPage from "./pages/WatchPage";
+import { api } from "./services/api";
+import type { Page } from "./types/navigation";
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('login')
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [selectedContentId, setSelectedContentId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState<Page>("login");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
+    const token = localStorage.getItem("auth_token");
     if (token) {
-      setIsAuthenticated(true)
-      setCurrentPage('home')
+      setIsAuthenticated(true);
+      setCurrentPage("home");
     }
-  }, [])
+  }, []);
 
   const handleLogin = () => {
-    setIsAuthenticated(true)
-    setCurrentPage('profiles')
-  }
+    setIsAuthenticated(true);
+    setCurrentPage("profiles");
+  };
 
   const handleLogout = async () => {
-    await api.logout()
-    setIsAuthenticated(false)
-    setCurrentPage('login')
-  }
+    await api.logout();
+    setIsAuthenticated(false);
+    setCurrentPage("login");
+  };
 
   const handleWatchContent = (contentId: string) => {
-    setSelectedContentId(contentId)
-    setCurrentPage('watch')
-  }
+    setSelectedContentId(contentId);
+    setCurrentPage("watch");
+  };
 
   const handleNavigate = (page: Page) => {
-    setCurrentPage(page)
-  }
+    setCurrentPage(page);
+  };
 
   if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />
+    return <LoginPage onLogin={handleLogin} />;
   }
 
   return (
     <div className="app">
-      {currentPage === 'home' && (
+      {currentPage === "home" && (
         <HomePage
           onWatchContent={handleWatchContent}
           onNavigate={handleNavigate}
           onLogout={handleLogout}
         />
       )}
-      {currentPage === 'browse' && (
+      {currentPage === "browse" && (
         <BrowsePage
           onWatchContent={handleWatchContent}
           onNavigate={handleNavigate}
           onLogout={handleLogout}
         />
       )}
-      {currentPage === 'watch' && selectedContentId && (
+      {currentPage === "watch" && selectedContentId && (
         <WatchPage
           contentId={selectedContentId}
-          onBack={() => setCurrentPage('home')}
+          onBack={() => setCurrentPage("home")}
         />
       )}
-      {currentPage === 'profiles' && (
-        <ProfilesPage onSelectProfile={() => setCurrentPage('home')} />
+      {currentPage === "profiles" && (
+        <ProfilesPage onSelectProfile={() => setCurrentPage("home")} />
       )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

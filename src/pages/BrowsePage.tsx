@@ -1,58 +1,62 @@
-import { useState, useEffect, useCallback } from 'react'
-import { api } from '@/services/api'
-import type { Content } from '@/types'
-import type { Page } from '@/types/navigation'
-import NavBar from '@/components/NavBar'
-import './BrowsePage.css'
+import { useCallback, useEffect, useState } from "react";
+import NavBar from "@/components/NavBar";
+import { api } from "@/services/api";
+import type { Content } from "@/types";
+import type { Page } from "@/types/navigation";
+import "./BrowsePage.css";
 
 interface BrowsePageProps {
-  onWatchContent: (contentId: string) => void
-  onNavigate: (page: Page) => void
-  onLogout: () => void
+  onWatchContent: (contentId: string) => void;
+  onNavigate: (page: Page) => void;
+  onLogout: () => void;
 }
 
-export default function BrowsePage({ onWatchContent, onNavigate, onLogout }: BrowsePageProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Content[]>([])
-  const [trending, setTrending] = useState<Content[]>([])
-  const [loading, setLoading] = useState(false)
+export default function BrowsePage({
+  onWatchContent,
+  onNavigate,
+  onLogout,
+}: BrowsePageProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Content[]>([]);
+  const [trending, setTrending] = useState<Content[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const loadTrending = useCallback(async () => {
     try {
-      const data = await api.getTrending()
-      setTrending(data)
+      const data = await api.getTrending();
+      setTrending(data);
     } catch (error) {
-      console.error('Failed to load trending:', error)
+      console.error("Failed to load trending:", error);
     }
-  }, [])
+  }, []);
 
   const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) return;
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const results = await api.searchContent(searchQuery)
-      setSearchResults(results)
+      const results = await api.searchContent(searchQuery);
+      setSearchResults(results);
     } catch (error) {
-      console.error('Search failed:', error)
+      console.error("Search failed:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [searchQuery])
+  }, [searchQuery]);
 
   useEffect(() => {
-    loadTrending()
-  }, [loadTrending])
+    loadTrending();
+  }, [loadTrending]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
-      handleSearch()
+      handleSearch();
     } else {
-      setSearchResults([])
+      setSearchResults([]);
     }
-  }, [searchQuery, handleSearch])
+  }, [searchQuery, handleSearch]);
 
-  const displayContent = searchQuery.trim() ? searchResults : trending
+  const displayContent = searchQuery.trim() ? searchResults : trending;
 
   return (
     <div className="browse-page">
@@ -70,7 +74,7 @@ export default function BrowsePage({ onWatchContent, onNavigate, onLogout }: Bro
         </div>
 
         <h2 className="section-title">
-          {searchQuery.trim() ? 'Search Results' : 'Trending Now'}
+          {searchQuery.trim() ? "Search Results" : "Trending Now"}
         </h2>
 
         {loading ? (
@@ -98,10 +102,12 @@ export default function BrowsePage({ onWatchContent, onNavigate, onLogout }: Bro
 
         {!loading && displayContent.length === 0 && (
           <div className="no-results">
-            {searchQuery.trim() ? 'No results found' : 'No trending content available'}
+            {searchQuery.trim()
+              ? "No results found"
+              : "No trending content available"}
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

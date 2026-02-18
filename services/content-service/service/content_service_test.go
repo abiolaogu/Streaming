@@ -3,6 +3,8 @@ package service
 import (
 	"testing"
 	"time"
+
+	"github.com/streamverse/content-service/models"
 )
 
 func TestContractEntitlementsPrefersPurchaseForMatchingContent(t *testing.T) {
@@ -97,5 +99,43 @@ func TestToTimeParsesBSONDateMap(t *testing.T) {
 	}
 	if parsed.UTC().Format(time.RFC3339) != "2030-06-30T12:00:00Z" {
 		t.Fatalf("unexpected parsed bson date: %s", parsed.UTC().Format(time.RFC3339))
+	}
+}
+
+func TestContractLocalEntitlementEvaluationForFreeGeoBlockedDRM(t *testing.T) {
+	t.Setenv("GEO_BLOCKED_COUNTRIES", "KP")
+	t.Setenv("DRM_LICENSE_URL", "https://license.test/v1")
+
+	content := &models.Content{
+		Category:       "free",
+		IsDRMProtected: true,
+	}
+
+	entitlement := evaluateLocalEntitlement(content, "content-1", "user-1", "US", nil)
+	if !entitlement.HasAccess || entitlement.Reason != "free" {
+		t.Fatalf("expected free access decision, got %+v", entitlement)
+	}
+	if entitlement.LicenseURL != "https://license.test/v1" {
+		t.Fatalf("expected drm license url from env")
+	}
+
+	blocked := evaluateLocalEntitlement(content, "content-1", "user-1", "kp", nil)
+	if blocked.HasAccess {
+		t.Fatalf("expected geo blocked access denial")
+	}
+	if blocked.Reason != "geo_blocked" {
+		t.Fatalf("expected geo_blocked reason, got %s", blocked.Reason)
+	}
+}
+
+func TestToStringAndToTimeHandleUnexpectedInput(t *testing.T) {
+	if got := toString(123); got != "" {
+		t.Fatalf("expected non-string to return empty string, got %q", got)
+	}
+	if got := toTime(map[string]interface{}{"$date": "invalid"}); got != nil {
+		t.Fatalf("expected invalid bson date to return nil")
+	}
+	if got := toTime("not-a-date"); got != nil {
+		t.Fatalf("expected invalid date string to return nil")
 	}
 }

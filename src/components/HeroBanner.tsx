@@ -1,14 +1,17 @@
-import type { Content } from '@/types'
-import './HeroBanner.css'
+import type { Content } from "@/types";
+import "./HeroBanner.css";
 
 interface HeroBannerProps {
-  content: Content
-  onPlay: () => void
+  content: Content;
+  onPlay: () => void;
 }
 
 export default function HeroBanner({ content, onPlay }: HeroBannerProps) {
   return (
-    <div className="hero-banner" style={{ backgroundImage: `url(${content.thumbnail_url})` }}>
+    <div
+      className="hero-banner"
+      style={{ backgroundImage: `url(${content.thumbnail_url})` }}
+    >
       <div className="hero-overlay">
         <div className="hero-content">
           <h1 className="hero-title">{content.title}</h1>
@@ -27,11 +30,15 @@ export default function HeroBanner({ content, onPlay }: HeroBannerProps) {
 
           <div className="hero-meta">
             <span className="rating">★ {content.rating.toFixed(1)}</span>
-            <span className="year">{new Date(content.release_date).getFullYear()}</span>
-            <span className="duration">{Math.floor(content.duration / 60)}m</span>
+            <span className="year">
+              {new Date(content.release_date).getFullYear()}
+            </span>
+            <span className="duration">
+              {Math.floor(content.duration / 60)}m
+            </span>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

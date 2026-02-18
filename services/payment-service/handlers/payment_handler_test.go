@@ -260,7 +260,7 @@ func (r *testWebhookRepo) GetActivePurchasesByUserID(ctx context.Context, userID
 	return nil, nil
 }
 
-func (r *testWebhookRepo) BeginWebhookEvent(ctx context.Context, eventID, eventType, payloadHash string) (bool, error) {
+func (r *testWebhookRepo) BeginWebhookEvent(ctx context.Context, eventID, eventType, payloadHash string, eventObject map[string]interface{}) (bool, error) {
 	if eventID == "" {
 		return false, fmt.Errorf("missing event id")
 	}
@@ -294,6 +294,30 @@ func (r *testWebhookRepo) BeginWebhookEvent(ctx context.Context, eventID, eventT
 	default:
 		return false, nil
 	}
+}
+
+func (r *testWebhookRepo) ListFailedWebhookEvents(ctx context.Context, limit int) ([]models.WebhookEvent, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var events []models.WebhookEvent
+	for eventID, event := range r.events {
+		if event.Status != "failed" {
+			continue
+		}
+		events = append(events, models.WebhookEvent{
+			EventID:     eventID,
+			EventType:   "invoice.payment_succeeded",
+			PayloadHash: event.PayloadHash,
+			Status:      event.Status,
+			Attempts:    event.Attempts,
+			LastError:   event.LastError,
+		})
+		if limit > 0 && len(events) >= limit {
+			break
+		}
+	}
+	return events, nil
 }
 
 func (r *testWebhookRepo) MarkWebhookEventProcessed(ctx context.Context, eventID string) error {

@@ -17,14 +17,21 @@ type ContentService struct {
 	repo                *repository.ContentRepository
 	cache               *cache.RedisClient
 	entitlementProvider EntitlementProvider
+	policyProvider      EntitlementPolicyProvider
 }
 
 // NewContentService creates a new content service
-func NewContentService(repo *repository.ContentRepository, cache *cache.RedisClient, entitlementProvider EntitlementProvider) *ContentService {
+func NewContentService(
+	repo *repository.ContentRepository,
+	cache *cache.RedisClient,
+	entitlementProvider EntitlementProvider,
+	policyProvider EntitlementPolicyProvider,
+) *ContentService {
 	return &ContentService{
 		repo:                repo,
 		cache:               cache,
 		entitlementProvider: entitlementProvider,
+		policyProvider:      policyProvider,
 	}
 }
 
@@ -167,6 +174,21 @@ func (s *ContentService) GetEntitlements(ctx context.Context, contentID, userID,
 		}
 	}
 
+	if s.policyProvider != nil {
+		return s.policyProvider.EvaluateEntitlement(ctx, PolicyEntitlementInput{
+			ContentID:       contentID,
+			UserID:          userID,
+			CountryCode:     countryCode,
+			ContentCategory: content.Category,
+			IsDRMProtected:  content.IsDRMProtected,
+			Entitlements:    entitlementRecords,
+		}, authHeader)
+	}
+
+	return evaluateLocalEntitlement(content, contentID, userID, countryCode, entitlementRecords), nil
+}
+
+func evaluateLocalEntitlement(content *models.Content, contentID, userID, countryCode string, entitlementRecords []map[string]interface{}) *models.Entitlement {
 	planID, hasSubscription, hasPurchase, purchaseExpiresAt := evaluateEntitlements(entitlementRecords, contentID)
 
 	entitlement := &models.Entitlement{
@@ -199,7 +221,7 @@ func (s *ContentService) GetEntitlements(ctx context.Context, contentID, userID,
 		entitlement.ExpiresAt = nil
 	}
 
-	return entitlement, nil
+	return entitlement
 }
 
 func isGeoBlocked(countryCode string) bool {

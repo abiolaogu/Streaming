@@ -42,6 +42,11 @@ func main() {
 	paymentRepo := repository.NewPaymentRepository(db)
 	paymentService := service.NewPaymentService(paymentRepo)
 	paymentHandler := paymentHandler.NewPaymentHandler(paymentService, log)
+	workerConfig := service.WebhookReconciliationConfigFromEnv()
+	worker := service.NewWebhookReconciliationWorker(paymentService, log, workerConfig)
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
+	go worker.Start(workerCtx)
 
 	router := gin.Default()
 	router.Use(middleware.CORS())
@@ -57,12 +62,12 @@ func main() {
 		auth := api.Group("")
 		auth.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 		{
-			auth.POST("/subscribe", paymentHandler.CreateSubscription)                      // POST /payments/subscribe
+			auth.POST("/subscribe", paymentHandler.CreateSubscription)                         // POST /payments/subscribe
 			auth.POST("/subscribe/:subscription_id/cancel", paymentHandler.CancelSubscription) // POST /payments/subscribe/{subscription_id}/cancel
-			auth.POST("/purchase", paymentHandler.PurchaseContent)                         // POST /payments/purchase
-			auth.GET("/entitlements/:user_id", paymentHandler.GetUserEntitlements)           // GET /payments/entitlements/{user_id}
-			auth.GET("/subscription", paymentHandler.GetSubscription)                       // GET /payments/subscription
-			auth.GET("/plans", paymentHandler.ListPlans)                                    // GET /payments/plans
+			auth.POST("/purchase", paymentHandler.PurchaseContent)                             // POST /payments/purchase
+			auth.GET("/entitlements/:user_id", paymentHandler.GetUserEntitlements)             // GET /payments/entitlements/{user_id}
+			auth.GET("/subscription", paymentHandler.GetSubscription)                          // GET /payments/subscription
+			auth.GET("/plans", paymentHandler.ListPlans)                                       // GET /payments/plans
 		}
 		// Webhook endpoint (no auth required - Stripe signs the request)
 		api.POST("/webhook", paymentHandler.HandleStripeWebhook) // POST /payments/webhook
@@ -91,6 +96,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	workerCancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown", logger.Error(err))

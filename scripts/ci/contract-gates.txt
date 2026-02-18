@@ -2,3 +2,4 @@
 services/auth-service|required|go test ./service -run '^TestContract' -count=1
 services/payment-service|required|go test ./handlers -run '^TestContract' -count=1
 services/content-service|required|go test ./service -run '^TestContract' -count=1
+services/policy-service|required|go test ./service -run '^TestContract' -count=1

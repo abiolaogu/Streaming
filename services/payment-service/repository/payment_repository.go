@@ -275,7 +275,13 @@ func (r *PaymentRepository) GetActivePurchasesByUserID(ctx context.Context, user
 
 // BeginWebhookEvent starts webhook processing if the event is new or failed previously.
 // Returns false when the event was already processed or is currently in-flight.
-func (r *PaymentRepository) BeginWebhookEvent(ctx context.Context, eventID, eventType, payloadHash string) (bool, error) {
+func (r *PaymentRepository) BeginWebhookEvent(
+	ctx context.Context,
+	eventID,
+	eventType,
+	payloadHash string,
+	eventObject map[string]interface{},
+) (bool, error) {
 	if eventID == "" {
 		return false, fmt.Errorf("webhook event id is required")
 	}
@@ -285,6 +291,7 @@ func (r *PaymentRepository) BeginWebhookEvent(ctx context.Context, eventID, even
 		"event_id":     eventID,
 		"event_type":   eventType,
 		"payload_hash": payloadHash,
+		"event_object": eventObject,
 		"status":       "processing",
 		"attempts":     1,
 		"created_at":   now,
@@ -318,6 +325,7 @@ func (r *PaymentRepository) BeginWebhookEvent(ctx context.Context, eventID, even
 				"status":       "processing",
 				"event_type":   eventType,
 				"payload_hash": payloadHash,
+				"event_object": eventObject,
 				"last_error":   "",
 				"updated_at":   now,
 			},
@@ -381,4 +389,28 @@ func (r *PaymentRepository) MarkWebhookEventFailed(ctx context.Context, eventID,
 		return fmt.Errorf("webhook event not found: %s", eventID)
 	}
 	return nil
+}
+
+// ListFailedWebhookEvents returns failed webhook events for reconciliation replay.
+func (r *PaymentRepository) ListFailedWebhookEvents(ctx context.Context, limit int) ([]models.WebhookEvent, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	cursor, err := r.webhookEventCollection.Find(
+		ctx,
+		bson.M{"status": "failed"},
+		options.Find().SetSort(bson.D{{Key: "updated_at", Value: 1}}).SetLimit(int64(limit)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var events []models.WebhookEvent
+	if err := cursor.All(ctx, &events); err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }
