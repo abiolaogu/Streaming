@@ -63,6 +63,16 @@ run_security_baseline() {
   ./scripts/ci/check-no-insecure-defaults.sh
 }
 
+run_coverage_gates() {
+  echo "==> Running Go coverage gates"
+  ./scripts/ci/enforce-go-coverage-thresholds.sh
+}
+
+run_contract_gates() {
+  echo "==> Running contract-test gates"
+  ./scripts/ci/enforce-contract-gates.sh all
+}
+
 case "$TARGET" in
   go)
     run_go_checks
@@ -79,15 +89,23 @@ case "$TARGET" in
   security)
     run_security_baseline
     ;;
+  coverage)
+    run_coverage_gates
+    ;;
+  contracts)
+    run_contract_gates
+    ;;
   all)
     run_go_checks
+    run_coverage_gates
     run_web_checks
     run_node_service_checks
     run_python_checks
+    run_contract_gates
     run_security_baseline
     ;;
   *)
-    echo "Unknown target '${TARGET}'. Use one of: go|web|node|python|security|all"
+    echo "Unknown target '${TARGET}'. Use one of: go|web|node|python|security|coverage|contracts|all"
     exit 1
     ;;
 esac

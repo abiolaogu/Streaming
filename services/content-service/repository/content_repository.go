@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/streamverse/common-go/database"
+	"github.com/streamverse/content-service/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/streamverse/common-go/database"
-	"github.com/streamverse/content-service/models"
 )
 
 // ContentRepository handles content data operations
 type ContentRepository struct {
-	collection      *mongo.Collection
+	collection        *mongo.Collection
 	ratingsCollection *mongo.Collection
 }
 
@@ -23,7 +23,7 @@ type ContentRepository struct {
 func NewContentRepository(db *database.MongoDB) *ContentRepository {
 	collection := db.Collection("contents")
 	ratingsCollection := db.Collection("ratings")
-	
+
 	// Create indexes
 	indexes := []mongo.IndexModel{
 		{Keys: bson.D{{Key: "title", Value: 1}}},
@@ -43,7 +43,7 @@ func NewContentRepository(db *database.MongoDB) *ContentRepository {
 	ratingsCollection.Indexes().CreateMany(context.Background(), ratingsIndexes)
 
 	return &ContentRepository{
-		collection:       collection,
+		collection:        collection,
 		ratingsCollection: ratingsCollection,
 	}
 }
@@ -374,32 +374,3 @@ func (r *ContentRepository) GetSimilar(ctx context.Context, contentID string, li
 
 	return contents, nil
 }
-
-// GetEntitlements checks user entitlements - Issue #13
-func (r *ContentRepository) GetEntitlements(ctx context.Context, contentID, userID string) (*models.Entitlement, error) {
-	// Get content metadata
-	content, err := r.GetByID(ctx, contentID)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Integrate with Payment Service to check subscription
-	// TODO: Check geo-blocking
-	// TODO: Determine DRM level based on subscription tier
-	// For now, return a basic entitlement
-	entitlement := &models.Entitlement{
-		ContentID: contentID,
-		UserID:    userID,
-		HasAccess: true, // TODO: Check actual subscription
-		Reason:    "subscription", // TODO: Determine actual reason
-		DRMLevel:  "3",            // TODO: Determine based on subscription tier
-	}
-
-	if content.IsDRMProtected {
-		entitlement.DRMLevel = "1" // 4K DRM
-		entitlement.LicenseURL = "https://license.widevine.com/license" // TODO: Configure
-	}
-
-	return entitlement, nil
-}
-

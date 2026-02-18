@@ -56,8 +56,11 @@ func main() {
 	)
 	defer redisClient.Close()
 
+	paymentServiceURL := os.Getenv("PAYMENT_SERVICE_URL")
+	entitlementClient := service.NewPaymentEntitlementsClient(paymentServiceURL)
+
 	// Initialize service
-	contentService := service.NewContentService(contentRepo, redisClient)
+	contentService := service.NewContentService(contentRepo, redisClient, entitlementClient)
 
 	// Initialize handlers
 	contentHandler := contentHandler.NewContentHandler(contentService, log)
@@ -65,7 +68,6 @@ func main() {
 	// Setup router
 	router := gin.Default()
 	router.Use(middleware.CORS())
-	router.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -74,6 +76,7 @@ func main() {
 
 	// Content routes - Issue #13: Routes updated to match requirements
 	api := router.Group("/content")
+	api.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 	{
 		api.GET("/:id", contentHandler.GetContentByID)               // GET /content/{id}
 		api.GET("/search", contentHandler.SearchContent)             // GET /content/search
@@ -84,9 +87,9 @@ func main() {
 		api.GET("/:id/similar", contentHandler.GetSimilar)           // GET /content/{id}/similar
 		api.GET("/:id/entitlements", contentHandler.GetEntitlements) // GET /content/{id}/entitlements
 		// Admin endpoints (optional for Issue #13)
-		api.POST("", middleware.AuthMiddleware(cfg.JWT.SecretKey), contentHandler.CreateContent)
-		api.PUT("/:id", middleware.AuthMiddleware(cfg.JWT.SecretKey), contentHandler.UpdateContent)
-		api.DELETE("/:id", middleware.AuthMiddleware(cfg.JWT.SecretKey), contentHandler.DeleteContent)
+		api.POST("", middleware.RequireRole("admin"), contentHandler.CreateContent)
+		api.PUT("/:id", middleware.RequireRole("admin"), contentHandler.UpdateContent)
+		api.DELETE("/:id", middleware.RequireRole("admin"), contentHandler.DeleteContent)
 	}
 
 	// Start server

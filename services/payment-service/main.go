@@ -45,7 +45,6 @@ func main() {
 
 	router := gin.Default()
 	router.Use(middleware.CORS())
-	router.Use(middleware.AuthMiddleware(cfg.JWT.SecretKey))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
@@ -62,6 +61,7 @@ func main() {
 			auth.POST("/subscribe/:subscription_id/cancel", paymentHandler.CancelSubscription) // POST /payments/subscribe/{subscription_id}/cancel
 			auth.POST("/purchase", paymentHandler.PurchaseContent)                         // POST /payments/purchase
 			auth.GET("/entitlements/:user_id", paymentHandler.GetUserEntitlements)           // GET /payments/entitlements/{user_id}
+			auth.GET("/subscription", paymentHandler.GetSubscription)                       // GET /payments/subscription
 			auth.GET("/plans", paymentHandler.ListPlans)                                    // GET /payments/plans
 		}
 		// Webhook endpoint (no auth required - Stripe signs the request)
@@ -98,4 +98,3 @@ func main() {
 
 	log.Info("Server exited")
 }
-

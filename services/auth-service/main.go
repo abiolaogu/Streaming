@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	authHandler "github.com/streamverse/auth-service/handlers"
+	"github.com/streamverse/auth-service/repository"
+	"github.com/streamverse/auth-service/service"
 	"github.com/streamverse/common-go/config"
 	"github.com/streamverse/common-go/database"
 	"github.com/streamverse/common-go/logger"
 	"github.com/streamverse/common-go/middleware"
-	authHandler "github.com/streamverse/auth-service/handlers"
-	"github.com/streamverse/auth-service/repository"
-	"github.com/streamverse/auth-service/service"
 )
 
 func main() {
@@ -45,8 +45,17 @@ func main() {
 	tokenRepo := repository.NewTokenRepository(db)
 	deviceRepo := repository.NewDeviceRepository(db)
 
+	oauthVerifier, err := service.NewOIDCVerifier(
+		context.Background(),
+		os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
+		os.Getenv("APPLE_OAUTH_CLIENT_ID"),
+	)
+	if err != nil {
+		log.Warn("OAuth verifier initialization failed", logger.Error(err))
+	}
+
 	// Initialize service
-	authService := service.NewAuthService(userRepo, tokenRepo, deviceRepo, cfg.JWT.SecretKey)
+	authService := service.NewAuthService(userRepo, tokenRepo, deviceRepo, cfg.JWT.SecretKey, oauthVerifier)
 
 	// Initialize handlers
 	authHandler := authHandler.NewAuthHandler(authService, log)
@@ -108,4 +117,3 @@ func main() {
 
 	log.Info("Server exited")
 }
-

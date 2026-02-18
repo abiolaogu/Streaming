@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/streamverse/auth-service/models"
+	"github.com/streamverse/common-go/database"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/streamverse/common-go/database"
-	"github.com/streamverse/auth-service/models"
 )
 
 // UserRepository handles user data operations
@@ -21,7 +21,7 @@ type UserRepository struct {
 // NewUserRepository creates a new user repository
 func NewUserRepository(db *database.MongoDB) *UserRepository {
 	collection := db.Collection("users")
-	
+
 	// Create indexes
 	indexes := []mongo.IndexModel{
 		{Keys: bson.D{{Key: "email", Value: 1}}, Options: options.Index().SetUnique(true)},
@@ -39,10 +39,15 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) (*models
 	user.ID = primitive.NewObjectID()
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
-	user.EmailVerified = false
+	if user.EmailVerified {
+		now := time.Now()
+		user.EmailVerifiedAt = &now
+	}
 	user.MFAEnabled = false
 	user.FailedLoginAttempts = 0
-	user.Roles = []string{"user"}
+	if len(user.Roles) == 0 {
+		user.Roles = []string{"user"}
+	}
 
 	_, err := r.collection.InsertOne(ctx, user)
 	if err != nil {
@@ -88,6 +93,25 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	return &user, nil
 }
 
+// GetByOAuthProvider retrieves a user by linked OAuth provider subject.
+func (r *UserRepository) GetByOAuthProvider(ctx context.Context, provider, subject string) (*models.User, error) {
+	if provider == "" || subject == "" {
+		return nil, fmt.Errorf("provider and subject are required")
+	}
+
+	var user models.User
+	filter := bson.M{fmt.Sprintf("oauth_providers.%s", provider): subject}
+	err := r.collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // Update updates user
 func (r *UserRepository) Update(ctx context.Context, id string, user *models.User) error {
 	objectID, err := primitive.ObjectIDFromHex(id)
@@ -119,7 +143,7 @@ func (r *UserRepository) IncrementFailedLoginAttempts(ctx context.Context, id st
 
 	update := bson.M{
 		"$inc": bson.M{"failed_login_attempts": 1},
-		"$set":  bson.M{"updated_at": time.Now()},
+		"$set": bson.M{"updated_at": time.Now()},
 	}
 
 	_, err = r.collection.UpdateOne(ctx, bson.M{"_id": objectID}, update)
@@ -136,7 +160,7 @@ func (r *UserRepository) ResetFailedLoginAttempts(ctx context.Context, id string
 	update := bson.M{
 		"$set": bson.M{
 			"failed_login_attempts": 0,
-			"account_locked_until":   nil,
+			"account_locked_until":  nil,
 			"updated_at":            time.Now(),
 		},
 	}
@@ -155,11 +179,10 @@ func (r *UserRepository) LockAccount(ctx context.Context, id string, until time.
 	update := bson.M{
 		"$set": bson.M{
 			"account_locked_until": until,
-			"updated_at":          time.Now(),
+			"updated_at":           time.Now(),
 		},
 	}
 
 	_, err = r.collection.UpdateOne(ctx, bson.M{"_id": objectID}, update)
 	return err
 }
-

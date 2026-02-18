@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/streamverse/auth-service/service"
 	"github.com/streamverse/common-go/errors"
 	"github.com/streamverse/common-go/logger"
-	"github.com/streamverse/auth-service/service"
 )
 
 // AuthHandler handles HTTP requests for authentication
@@ -106,8 +107,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		7*24*3600, // 7 days
 		"/",
 		"",
-		true,  // secure (HTTPS only)
-		true,  // httpOnly
+		true, // secure (HTTPS only)
+		true, // httpOnly
 	)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -259,7 +260,7 @@ func (h *AuthHandler) Validate(c *gin.Context) {
 	orgID, _ := c.Get("org_id")
 
 	c.JSON(http.StatusOK, gin.H{
-		"valid":  true,
+		"valid":   true,
 		"user_id": userID,
 		"email":   email,
 		"roles":   roles,
@@ -315,9 +316,41 @@ func (h *AuthHandler) OAuthGoogle(c *gin.Context) {
 		return
 	}
 
-	// TODO: Verify Google ID token and create/login user
-	// accessToken, refreshToken, user, err := h.service.OAuthLogin(ctx, "google", req.IDToken)
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "OAuth2.0 Google integration - TODO"})
+	userAgent := c.GetHeader("User-Agent")
+	ipAddress := c.ClientIP()
+
+	accessToken, refreshToken, user, err := h.service.OAuthLogin(
+		c.Request.Context(),
+		"google",
+		req.IDToken,
+		userAgent,
+		ipAddress,
+	)
+	if err != nil {
+		h.logger.Error("Google OAuth login failed", logger.Error(err))
+		if strings.Contains(strings.ToLower(err.Error()), "not configured") {
+			c.JSON(http.StatusServiceUnavailable, errors.NewInternalError("Google OAuth is not configured"))
+			return
+		}
+		c.JSON(http.StatusUnauthorized, errors.NewUnauthorizedError("Invalid Google token"))
+		return
+	}
+
+	c.SetCookie(
+		"refresh_token",
+		refreshToken,
+		7*24*3600,
+		"/",
+		"",
+		true,
+		true,
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": accessToken,
+		"user":         user,
+		"expires_in":   900,
+	})
 }
 
 // OAuthApple handles POST /auth/oauth/apple
@@ -330,6 +363,39 @@ func (h *AuthHandler) OAuthApple(c *gin.Context) {
 		return
 	}
 
-	// TODO: Verify Apple ID token and create/login user
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "OAuth2.0 Apple integration - TODO"})
+	userAgent := c.GetHeader("User-Agent")
+	ipAddress := c.ClientIP()
+
+	accessToken, refreshToken, user, err := h.service.OAuthLogin(
+		c.Request.Context(),
+		"apple",
+		req.IDToken,
+		userAgent,
+		ipAddress,
+	)
+	if err != nil {
+		h.logger.Error("Apple OAuth login failed", logger.Error(err))
+		if strings.Contains(strings.ToLower(err.Error()), "not configured") {
+			c.JSON(http.StatusServiceUnavailable, errors.NewInternalError("Apple OAuth is not configured"))
+			return
+		}
+		c.JSON(http.StatusUnauthorized, errors.NewUnauthorizedError("Invalid Apple token"))
+		return
+	}
+
+	c.SetCookie(
+		"refresh_token",
+		refreshToken,
+		7*24*3600,
+		"/",
+		"",
+		true,
+		true,
+	)
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": accessToken,
+		"user":         user,
+		"expires_in":   900,
+	})
 }

@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/streamverse/common-go/cache"
@@ -12,15 +14,17 @@ import (
 
 // ContentService handles content business logic
 type ContentService struct {
-	repo  *repository.ContentRepository
-	cache *cache.RedisClient
+	repo                *repository.ContentRepository
+	cache               *cache.RedisClient
+	entitlementProvider EntitlementProvider
 }
 
 // NewContentService creates a new content service
-func NewContentService(repo *repository.ContentRepository, cache *cache.RedisClient) *ContentService {
+func NewContentService(repo *repository.ContentRepository, cache *cache.RedisClient, entitlementProvider EntitlementProvider) *ContentService {
 	return &ContentService{
-		repo:  repo,
-		cache: cache,
+		repo:                repo,
+		cache:               cache,
+		entitlementProvider: entitlementProvider,
 	}
 }
 
@@ -149,10 +153,142 @@ func (s *ContentService) GetSimilar(ctx context.Context, contentID string, limit
 }
 
 // GetEntitlements checks if user can access content - Issue #13
-func (s *ContentService) GetEntitlements(ctx context.Context, contentID, userID string) (*models.Entitlement, error) {
-	// TODO: Integrate with Payment Service to check subscription
-	// TODO: Check geo-blocking based on user IP
-	// TODO: Check DRM level based on subscription tier
-	// For now, return a basic entitlement check
-	return s.repo.GetEntitlements(ctx, contentID, userID)
+func (s *ContentService) GetEntitlements(ctx context.Context, contentID, userID, countryCode, authHeader string) (*models.Entitlement, error) {
+	content, err := s.repo.GetByID(ctx, contentID)
+	if err != nil {
+		return nil, err
+	}
+
+	var entitlementRecords []map[string]interface{}
+	if s.entitlementProvider != nil {
+		entitlementRecords, err = s.entitlementProvider.GetUserEntitlements(ctx, userID, authHeader)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	planID, hasSubscription, hasPurchase, purchaseExpiresAt := evaluateEntitlements(entitlementRecords, contentID)
+
+	entitlement := &models.Entitlement{
+		ContentID: contentID,
+		UserID:    userID,
+		HasAccess: false,
+		Reason:    "subscription_required",
+		DRMLevel:  drmLevelForPlan(planID),
+	}
+
+	if hasPurchase {
+		entitlement.HasAccess = true
+		entitlement.Reason = "purchased"
+		entitlement.ExpiresAt = purchaseExpiresAt
+	} else if hasSubscription {
+		entitlement.HasAccess = true
+		entitlement.Reason = "subscription"
+	} else if content.Category == "free" || content.Category == "avod" {
+		entitlement.HasAccess = true
+		entitlement.Reason = "free"
+	}
+
+	if content.IsDRMProtected {
+		entitlement.LicenseURL = defaultLicenseURL()
+	}
+
+	if isGeoBlocked(countryCode) {
+		entitlement.HasAccess = false
+		entitlement.Reason = "geo_blocked"
+		entitlement.ExpiresAt = nil
+	}
+
+	return entitlement, nil
+}
+
+func isGeoBlocked(countryCode string) bool {
+	countryCode = strings.ToUpper(strings.TrimSpace(countryCode))
+	if countryCode == "" {
+		return false
+	}
+
+	blocked := strings.Split(os.Getenv("GEO_BLOCKED_COUNTRIES"), ",")
+	for _, country := range blocked {
+		if strings.ToUpper(strings.TrimSpace(country)) == countryCode {
+			return true
+		}
+	}
+	return false
+}
+
+func evaluateEntitlements(records []map[string]interface{}, contentID string) (planID string, hasSubscription bool, hasPurchase bool, purchaseExpiresAt *time.Time) {
+	for _, record := range records {
+		recordType := strings.ToLower(toString(record["type"]))
+		switch recordType {
+		case "subscription":
+			status := strings.ToLower(toString(record["status"]))
+			if status == "active" || status == "trialing" {
+				hasSubscription = true
+				if planID == "" {
+					planID = toString(record["plan_id"])
+				}
+			}
+		case "purchase":
+			if toString(record["content_id"]) != contentID {
+				continue
+			}
+			status := strings.ToLower(toString(record["status"]))
+			if status != "" && status != "completed" {
+				continue
+			}
+			hasPurchase = true
+			if parsed := toTime(record["expires_at"]); parsed != nil {
+				purchaseExpiresAt = parsed
+			}
+		}
+	}
+	return planID, hasSubscription, hasPurchase, purchaseExpiresAt
+}
+
+func toString(value interface{}) string {
+	if str, ok := value.(string); ok {
+		return str
+	}
+	return ""
+}
+
+func toTime(value interface{}) *time.Time {
+	if value == nil {
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		if parsed, err := time.Parse(time.RFC3339, v); err == nil {
+			return &parsed
+		}
+	case map[string]interface{}:
+		if dateStr, ok := v["$date"].(string); ok {
+			if parsed, err := time.Parse(time.RFC3339, dateStr); err == nil {
+				return &parsed
+			}
+		}
+	}
+	return nil
+}
+
+func drmLevelForPlan(planID string) string {
+	switch planID {
+	case "premium", "tier3":
+		return "1"
+	case "pro", "standard", "tier2":
+		return "2"
+	default:
+		return "3"
+	}
+}
+
+func defaultLicenseURL() string {
+	if url := os.Getenv("DRM_LICENSE_URL"); url != "" {
+		return url
+	}
+	return "https://license.widevine.com/license"
 }

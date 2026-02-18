@@ -139,6 +139,7 @@ Implemented in this continuation pass:
 11. Added CI contract-test gates for changed critical services (auth, payment, and content) with dedicated `TestContract*` suites.
 12. Incrementally raised enforced coverage thresholds for auth/content/payment modules and onboarded auth-service into required contract-test gates.
 13. Added contract tests for auth OAuth account-linking paths and raised thresholds again to `auth>=3%`, `content>=7%`, `payment>=12%`.
+14. Added negative-path auth OAuth contract tests for verifier/provider failure mapping and raised thresholds to `auth>=5%`, `content>=10%`, `payment>=15%`.
 
 Outstanding after continuation:
 

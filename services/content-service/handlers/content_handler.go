@@ -242,7 +242,13 @@ func (h *ContentHandler) GetEntitlements(c *gin.Context) {
 		return
 	}
 
-	entitlement, err := h.service.GetEntitlements(c.Request.Context(), contentID, userID.(string))
+	countryCode := c.GetHeader("X-Country-Code")
+	if countryCode == "" {
+		countryCode = c.GetHeader("CF-IPCountry")
+	}
+
+	authHeader := c.GetHeader("Authorization")
+	entitlement, err := h.service.GetEntitlements(c.Request.Context(), contentID, userID.(string), countryCode, authHeader)
 	if err != nil {
 		h.logger.Error("Failed to get entitlements", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check entitlements"})
